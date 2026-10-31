@@ -1,0 +1,221 @@
+########## (a) FILA VAZIA -> ZERO PODS ##########
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LLEN pedidos
+# 2026-10-31 17:18:12 -03
+0
+
+$ kubectl get pods -n store-dev -l app=store-worker
+# 2026-10-31 17:18:13 -03
+No resources found in store-dev namespace.
+
+$ kubectl get jobs -n store-dev -l scaledjob.keda.sh/name=store-worker-fila
+# 2026-10-31 17:18:13 -03
+No resources found in store-dev namespace.
+
+########## (b) INSERE 50 PEDIDOS ##########
+$ kubectl exec -n store-dev deploy/redis -- sh -c 'for i in $(seq 1 50); do redis-cli RPUSH pedidos "pedido-$i" >/dev/null; done; redis-cli LLEN pedidos'
+# 2026-10-31 17:18:13 -03
+50
+
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LLEN pedidos; kubectl get jobs -n store-dev -l scaledjob.keda.sh/name=store-worker-fila --no-headers | wc -l | xargs echo 'jobs:'; kubectl get pods -n store-dev -l app=store-worker
+# 2026-10-31 17:18:18 -03
+50
+jobs: 10
+NAME                            READY   STATUS              RESTARTS   AGE
+store-worker-fila-cqnnj-n6hwg   0/1     ContainerCreating   0          0s
+store-worker-fila-djtjp-dmt2k   0/1     ContainerCreating   0          0s
+store-worker-fila-gc7qr-qdpfm   0/1     ContainerCreating   0          0s
+store-worker-fila-hqtb6-85c5c   0/1     ContainerCreating   0          0s
+store-worker-fila-px7hp-z7wt2   0/1     ContainerCreating   0          0s
+store-worker-fila-rfnct-xjvk7   0/1     ContainerCreating   0          0s
+store-worker-fila-rkvks-dwkqk   0/1     ContainerCreating   0          0s
+store-worker-fila-sw8r9-smzrq   0/1     ContainerCreating   0          0s
+store-worker-fila-txv4p-2vprg   0/1     ContainerCreating   0          0s
+store-worker-fila-x58v2-rzwb4   0/1     ContainerCreating   0          0s
+
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LLEN pedidos; kubectl get jobs -n store-dev -l scaledjob.keda.sh/name=store-worker-fila --no-headers | wc -l | xargs echo 'jobs:'; kubectl get pods -n store-dev -l app=store-worker
+# 2026-10-31 17:18:23 -03
+30
+jobs: 10
+NAME                            READY   STATUS    RESTARTS   AGE
+store-worker-fila-cqnnj-n6hwg   1/1     Running   0          5s
+store-worker-fila-djtjp-dmt2k   1/1     Running   0          5s
+store-worker-fila-gc7qr-qdpfm   1/1     Running   0          5s
+store-worker-fila-hqtb6-85c5c   1/1     Running   0          5s
+store-worker-fila-px7hp-z7wt2   1/1     Running   0          5s
+store-worker-fila-rfnct-xjvk7   1/1     Running   0          5s
+store-worker-fila-rkvks-dwkqk   1/1     Running   0          5s
+store-worker-fila-sw8r9-smzrq   1/1     Running   0          5s
+store-worker-fila-txv4p-2vprg   1/1     Running   0          5s
+store-worker-fila-x58v2-rzwb4   1/1     Running   0          5s
+
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LLEN pedidos; kubectl get jobs -n store-dev -l scaledjob.keda.sh/name=store-worker-fila --no-headers | wc -l | xargs echo 'jobs:'; kubectl get pods -n store-dev -l app=store-worker
+# 2026-10-31 17:18:28 -03
+10
+jobs: 10
+NAME                            READY   STATUS    RESTARTS   AGE
+store-worker-fila-cqnnj-n6hwg   1/1     Running   0          11s
+store-worker-fila-djtjp-dmt2k   1/1     Running   0          11s
+store-worker-fila-gc7qr-qdpfm   1/1     Running   0          11s
+store-worker-fila-hqtb6-85c5c   1/1     Running   0          11s
+store-worker-fila-px7hp-z7wt2   1/1     Running   0          11s
+store-worker-fila-rfnct-xjvk7   1/1     Running   0          11s
+store-worker-fila-rkvks-dwkqk   1/1     Running   0          11s
+store-worker-fila-sw8r9-smzrq   1/1     Running   0          11s
+store-worker-fila-txv4p-2vprg   1/1     Running   0          11s
+store-worker-fila-x58v2-rzwb4   1/1     Running   0          11s
+
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LLEN pedidos; kubectl get jobs -n store-dev -l scaledjob.keda.sh/name=store-worker-fila --no-headers | wc -l | xargs echo 'jobs:'; kubectl get pods -n store-dev -l app=store-worker
+# 2026-10-31 17:18:34 -03
+0
+jobs: 10
+NAME                            READY   STATUS    RESTARTS   AGE
+store-worker-fila-cqnnj-n6hwg   1/1     Running   0          16s
+store-worker-fila-djtjp-dmt2k   1/1     Running   0          16s
+store-worker-fila-gc7qr-qdpfm   1/1     Running   0          16s
+store-worker-fila-hqtb6-85c5c   1/1     Running   0          16s
+store-worker-fila-px7hp-z7wt2   1/1     Running   0          16s
+store-worker-fila-rfnct-xjvk7   1/1     Running   0          16s
+store-worker-fila-rkvks-dwkqk   1/1     Running   0          16s
+store-worker-fila-sw8r9-smzrq   1/1     Running   0          16s
+store-worker-fila-txv4p-2vprg   1/1     Running   0          16s
+store-worker-fila-x58v2-rzwb4   1/1     Running   0          16s
+
+$ kubectl describe scaledjob store-worker-fila -n store-dev
+# 2026-10-31 17:18:34 -03
+Name:         store-worker-fila
+Namespace:    store-dev
+Labels:       <none>
+Annotations:  <none>
+API Version:  keda.sh/v1alpha1
+Kind:         ScaledJob
+Metadata:
+  Creation Timestamp:  2026-10-31T20:17:53Z
+  Finalizers:
+    finalizer.keda.sh
+  Generation:        2
+  Resource Version:  1783
+  UID:               41d84dee-7393-4e4f-b56e-7552ddcf1f89
+Spec:
+  Failed Jobs History Limit:  2
+  Job Target Ref:
+    Backoff Limit:  2
+    Template:
+      Metadata:
+        Labels:
+          App:  store-worker
+      Spec:
+        Containers:
+          Args:
+            # cada Job consome ate 5 pedidos (= listLength) e termina
+for i in 1 2 3 4 5; do
+  P=$(redis-cli -h redis.store-dev.svc.cluster.local LPOP pedidos)
+  [ -z "$P" ] && break
+  echo "$(hostname) processando $P"
+  sleep 3
+done
+echo "$(hostname) terminou"
+
+          Command:
+            sh
+            -c
+          Image:  redis:7-alpine
+          Name:   store-worker
+          Resources:
+            Limits:
+              Memory:  64Mi
+            Requests:
+              Cpu:               20m
+              Memory:            16Mi
+        Restart Policy:          Never
+    Ttl Seconds After Finished:  30
+  Max Replica Count:             10
+  Min Replica Count:             0
+  Polling Interval:              5
+  Rollout:
+  Scaling Strategy:
+    Strategy:                     default
+  Successful Jobs History Limit:  0
+  Triggers:
+    Metadata:
+      Address:      redis.store-dev.svc.cluster.local:6379
+      List Length:  5
+      List Name:    pedidos
+    Type:           redis
+Status:
+  Authentications Types:  
+  Conditions:
+    Message:         ScaledJob is defined correctly and is ready for scaling
+    Reason:          ScaledJobReady
+    Status:          True
+    Type:            Ready
+    Message:         Scaling is not performed because triggers are not active
+    Reason:          ScalerNotActive
+    Status:          False
+    Type:            Active
+    Status:          Unknown
+    Type:            Fallback
+    Status:          False
+    Type:            Paused
+  Last Active Time:  2026-10-31T20:18:28Z
+  Triggers Activity:
+    s0-redis-pedidos:
+      Is Active:   false
+  Triggers Types:  redis
+Events:
+  Type    Reason              Age   From           Message
+  ----    ------              ----  ----           -------
+  Normal  KEDAScalersStarted  41s   scale-handler  Scaler redis is built
+  Normal  KEDAScalersStarted  41s   scale-handler  Started scalers watch
+  Normal  ScaledJobReady      41s   keda-operator  ScaledJob is ready for scaling
+  Normal  ScaledJobReady      41s   keda-operator  ScaledJob is ready for scaling
+  Normal  KEDAScalersStarted  36s   scale-handler  Scaler redis is built
+  Normal  KEDAJobsCreated     16s   scale-handler  Created 10 jobs
+  Normal  ScaledJobActive     16s   scale-handler  Scaling is performed because triggers are active
+  Normal  ScaledJobInactive   1s    scale-handler  Scaling is not performed because triggers are not active
+
+########## (c) FILA ESVAZIADA -> VOLTA A ZERO ##########
+17:18:40 LLEN=0 pods=       0
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LLEN pedidos
+# 2026-10-31 17:18:40 -03
+0
+
+$ kubectl get pods -n store-dev -l app=store-worker
+# 2026-10-31 17:18:40 -03
+No resources found in store-dev namespace.
+
+$ kubectl get pods -n store-dev
+# 2026-10-31 17:18:40 -03
+NAME                                 READY   STATUS      RESTARTS   AGE
+cliente                              1/1     Running     0          4m21s
+processa-particoes-0-q2m7p           0/1     Completed   0          7m20s
+processa-particoes-1-vj9rs           0/1     Completed   0          7m20s
+processa-particoes-2-mfxvz           0/1     Completed   0          7m20s
+processa-particoes-3-qp5t7           0/1     Completed   0          7m20s
+processa-pedidos-2q9f5               0/1     Completed   0          7m43s
+processa-pedidos-425dn               0/1     Completed   0          7m48s
+processa-pedidos-4jwld               0/1     Completed   0          7m48s
+processa-pedidos-c7jdq               0/1     Completed   0          7m59s
+processa-pedidos-fbgx2               0/1     Completed   0          7m59s
+processa-pedidos-hskp4               0/1     Completed   0          7m36s
+processa-pedidos-qj698               0/1     Completed   0          7m52s
+processa-pedidos-spnqc               0/1     Completed   0          7m41s
+processa-pedidos-x945l               0/1     Completed   0          7m42s
+processa-pedidos-zn2q6               0/1     Completed   0          7m59s
+redis-74cd45cd74-rcrzm               1/1     Running     0          53s
+relatorio-quebrado-vgv96             0/1     Completed   0          5m21s
+sincroniza-catalogo-29891295-bxdv9   1/1     Running     0          3m40s
+store-api-5f986f48b9-n7vsr           1/1     Running     0          2m30s
+store-api-5f986f48b9-v2cts           1/1     Running     0          2m33s
+
+$ kubectl get events -n store-dev --field-selector involvedObject.kind=ScaledJob --sort-by=.lastTimestamp | tail -20
+# 2026-10-31 17:18:40 -03
+LAST SEEN   TYPE     REASON               OBJECT                        MESSAGE
+47s         Normal   KEDAScalersStarted   scaledjob/store-worker-fila   Scaler redis is built
+47s         Normal   KEDAScalersStarted   scaledjob/store-worker-fila   Started scalers watch
+47s         Normal   ScaledJobReady       scaledjob/store-worker-fila   ScaledJob is ready for scaling
+47s         Normal   ScaledJobReady       scaledjob/store-worker-fila   ScaledJob is ready for scaling
+42s         Normal   KEDAScalersStarted   scaledjob/store-worker-fila   Scaler redis is built
+22s         Normal   KEDAJobsCreated      scaledjob/store-worker-fila   Created 10 jobs
+22s         Normal   ScaledJobActive      scaledjob/store-worker-fila   Scaling is performed because triggers are active
+7s          Normal   ScaledJobInactive    scaledjob/store-worker-fila   Scaling is not performed because triggers are not active
+

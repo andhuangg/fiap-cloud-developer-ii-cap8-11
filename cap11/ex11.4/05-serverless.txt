@@ -1,0 +1,36 @@
+$ kubectl get ksvc,revision -n store-serverless
+# 2026-10-31 19:34:20 -03
+NAME                                    URL                                            LATESTCREATED     LATESTREADY       READY   REASON
+service.serving.knative.dev/store-api   http://store-api.store-serverless.fiap.local   store-api-00001   store-api-00001   True    
+
+NAME                                           CONFIG NAME   GENERATION   READY   REASON   ACTUAL REPLICAS   DESIRED REPLICAS
+revision.serving.knative.dev/store-api-00001   store-api     1            True             0                 0
+
+$ kubectl get pods -n store-serverless
+# 2026-10-31 19:34:20 -03
+No resources found in store-serverless namespace.
+
+$ curl -s -o /dev/null -w 'HTTP %{http_code} em %{time_total}s (cold start)
+' -H 'Host: store-api.store-serverless.fiap.local' http://localhost:18080/info
+# 2026-10-31 19:34:23 -03
+HTTP 200 em 5.482313s (cold start)
+
+$ kubectl get pods -n store-serverless
+# 2026-10-31 19:34:29 -03
+NAME                                         READY   STATUS    RESTARTS   AGE
+store-api-00001-deployment-f6c8bb849-v4fdb   1/2     Running   0          5s
+
+$ argocd app get fiap-store-serverless | sed -n '/Sync Status/,/Health/p'
+# 2026-10-31 19:34:29 -03
+Sync Status:        Synced to main (c6d9100)
+Health Status:      Healthy
+
+$ kubectl get pods -n store-serverless
+# 2026-10-31 19:36:12 -03
+No resources found in store-serverless namespace.
+
+$ argocd app get fiap-store-serverless | sed -n '/Sync Status/,/Health/p'
+# 2026-10-31 19:36:12 -03
+Sync Status:        Synced to main (c6d9100)
+Health Status:      Healthy
+

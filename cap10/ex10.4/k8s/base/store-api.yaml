@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: store-api
+automountServiceAccountToken: false      # a API nao conversa com o Kubernetes
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-api
+  labels: {app: store-api}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector: {matchLabels: {app: store-api}}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}   # zero-downtime (licao do ex 10.3)
+  template:
+    metadata:
+      labels: {app: store-api}
+    spec:
+      serviceAccountName: store-api
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: store-api
+          image: store-api:1.0                 # tag real definida em cada overlay (images:)
+          imagePullPolicy: IfNotPresent
+          ports: [{name: http, containerPort: 8000}]
+          envFrom:
+            - configMapRef: {name: store-config}
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            privileged: false
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: store-api
+  labels: {app: store-api}
+spec:
+  selector: {app: store-api}
+  ports: [{name: http, port: 80, targetPort: http}]

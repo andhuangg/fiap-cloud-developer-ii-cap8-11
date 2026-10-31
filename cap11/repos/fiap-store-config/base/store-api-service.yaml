@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: store-api
+  labels: {app: store-api}
+spec:
+  selector: {app: store-api}
+  ports:
+    - {name: http, port: 80, targetPort: http}

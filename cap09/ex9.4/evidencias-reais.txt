@@ -1,0 +1,114 @@
+########## ana.dev (fiap:dev) ##########
+$ kubectl --kubeconfig=usuarios/ana.dev/kubeconfig-ana.dev.yaml auth whoami
+# 2026-10-31 17:27:08 -03
+ATTRIBUTE                                           VALUE
+Username                                            ana.dev
+Groups                                              [fiap:dev system:authenticated]
+Extra: authentication.kubernetes.io/credential-id   [X509SHA256=b5d1e8a0cc4864cd7991e21e65b4c2339def35b33a47769e66e82b433eb941af]
+
+$ kubectl --kubeconfig=usuarios/ana.dev/kubeconfig-ana.dev.yaml exec -n store-dev store-api-5f986f48b9-n7vsr -- id
+# 2026-10-31 17:27:08 -03
+uid=10001(appuser) gid=10001(appuser) groups=10001(appuser)
+
+$ kubectl --kubeconfig=usuarios/ana.dev/kubeconfig-ana.dev.yaml get deploy -n store-prod
+# 2026-10-31 17:27:08 -03
+No resources found in store-prod namespace.
+
+$ kubectl --kubeconfig=usuarios/ana.dev/kubeconfig-ana.dev.yaml get secrets -n store-prod
+# 2026-10-31 17:27:08 -03
+Error from server (Forbidden): secrets is forbidden: User "ana.dev" cannot list resource "secrets" in API group "" in the namespace "store-prod"
+
+$ kubectl --kubeconfig=usuarios/ana.dev/kubeconfig-ana.dev.yaml create deployment hack --image=busybox:1.36 -n store-prod
+# 2026-10-31 17:27:08 -03
+error: failed to create deployment: deployments.apps is forbidden: User "ana.dev" cannot create resource "deployments" in API group "apps" in the namespace "store-prod"
+
+########## joao.qa2 (fiap:qa) ##########
+$ kubectl --kubeconfig=usuarios/joao.qa2/kubeconfig-joao.qa2.yaml create job suite-teste --image=busybox:1.36 -n store-dev -- echo testes-ok
+# 2026-10-31 17:27:08 -03
+job.batch/suite-teste created
+
+$ kubectl --kubeconfig=usuarios/joao.qa2/kubeconfig-joao.qa2.yaml delete job suite-teste -n store-dev
+# 2026-10-31 17:27:08 -03
+job.batch "suite-teste" deleted
+
+$ kubectl --kubeconfig=usuarios/joao.qa2/kubeconfig-joao.qa2.yaml create job suite-teste --image=busybox:1.36 -n store-prod -- echo testes-ok
+# 2026-10-31 17:27:08 -03
+error: failed to create job: jobs.batch is forbidden: User "joao.qa2" cannot create resource "jobs" in API group "batch" in the namespace "store-prod"
+
+$ kubectl --kubeconfig=usuarios/joao.qa2/kubeconfig-joao.qa2.yaml scale deploy store-api --replicas=3 -n store-dev
+# 2026-10-31 17:27:08 -03
+Error from server (Forbidden): deployments.apps "store-api" is forbidden: User "joao.qa2" cannot patch resource "deployments/scale" in API group "apps" in the namespace "store-dev"
+
+########## carla.sre (fiap:sre) ##########
+$ kubectl --kubeconfig=usuarios/carla.sre/kubeconfig-carla.sre.yaml get nodes
+# 2026-10-31 17:27:08 -03
+NAME      STATUS   ROLES           AGE   VERSION
+cp-bara   Ready    control-plane   18m   v1.33.1
+
+$ kubectl --kubeconfig=usuarios/carla.sre/kubeconfig-carla.sre.yaml get storageclasses
+# 2026-10-31 17:27:08 -03
+NAME                 PROVISIONER                RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+standard (default)   k8s.io/minikube-hostpath   Delete          Immediate           false                  17m
+
+$ kubectl --kubeconfig=usuarios/carla.sre/kubeconfig-carla.sre.yaml get secrets -n store-prod
+# 2026-10-31 17:27:08 -03
+No resources found in store-prod namespace.
+
+$ kubectl --kubeconfig=usuarios/carla.sre/kubeconfig-carla.sre.yaml create clusterrolebinding virar-admin --clusterrole=cluster-admin --user=carla.sre
+# 2026-10-31 17:27:08 -03
+error: failed to create clusterrolebinding: clusterrolebindings.rbac.authorization.k8s.io is forbidden: User "carla.sre" cannot create resource "clusterrolebindings" in API group "rbac.authorization.k8s.io" at the cluster scope
+
+$ kubectl --kubeconfig=usuarios/carla.sre/kubeconfig-carla.sre.yaml create rolebinding virar-admin --clusterrole=admin --user=carla.sre -n store-prod
+# 2026-10-31 17:27:08 -03
+error: failed to create rolebinding: rolebindings.rbac.authorization.k8s.io is forbidden: User "carla.sre" cannot create resource "rolebindings" in API group "rbac.authorization.k8s.io" in the namespace "store-prod"
+
+########## bruno.auditor (fiap:auditor) ##########
+$ kubectl --kubeconfig=usuarios/bruno.auditor/kubeconfig-bruno.auditor.yaml get rolebindings -n store-prod
+# 2026-10-31 17:27:08 -03
+NAME              ROLE                                   AGE
+fiap-auditor      ClusterRole/fiap-auditor               30s
+fiap-dev-reader   ClusterRole/fiap-workload-reader       30s
+fiap-qa-reader    ClusterRole/fiap-workload-reader       30s
+fiap-sre-admin    ClusterRole/fiap-sre-namespace-admin   30s
+user-d-edit       ClusterRole/edit                       2m41s
+
+$ kubectl --kubeconfig=usuarios/bruno.auditor/kubeconfig-bruno.auditor.yaml get secrets -n store-dev
+# 2026-10-31 17:27:09 -03
+Error from server (Forbidden): secrets is forbidden: User "bruno.auditor" cannot list resource "secrets" in API group "" in the namespace "store-dev"
+
+$ kubectl --kubeconfig=usuarios/bruno.auditor/kubeconfig-bruno.auditor.yaml delete pod store-api-5f986f48b9-n7vsr -n store-dev
+# 2026-10-31 17:27:09 -03
+Error from server (Forbidden): pods "store-api-5f986f48b9-n7vsr" is forbidden: User "bruno.auditor" cannot delete resource "pods" in API group "" in the namespace "store-dev"
+
+$ kubectl --kubeconfig=usuarios/bruno.auditor/kubeconfig-bruno.auditor.yaml auth can-i --list -n store-dev | grep -vE '^ +\[' 
+# 2026-10-31 17:27:09 -03
+Resources                                       Non-Resource URLs   Resource Names   Verbs
+selfsubjectreviews.authentication.k8s.io        []                  []               [create]
+selfsubjectaccessreviews.authorization.k8s.io   []                  []               [create]
+selfsubjectrulesreviews.authorization.k8s.io    []                  []               [create]
+configmaps                                      []                  []               [get list watch]
+endpoints                                       []                  []               [get list watch]
+events                                          []                  []               [get list watch]
+limitranges                                     []                  []               [get list watch]
+persistentvolumeclaims                          []                  []               [get list watch]
+pods/log                                        []                  []               [get list watch]
+pods                                            []                  []               [get list watch]
+replicationcontrollers                          []                  []               [get list watch]
+resourcequotas                                  []                  []               [get list watch]
+serviceaccounts                                 []                  []               [get list watch]
+services                                        []                  []               [get list watch]
+controllerrevisions.apps                        []                  []               [get list watch]
+daemonsets.apps                                 []                  []               [get list watch]
+deployments.apps                                []                  []               [get list watch]
+replicasets.apps                                []                  []               [get list watch]
+statefulsets.apps                               []                  []               [get list watch]
+horizontalpodautoscalers.autoscaling            []                  []               [get list watch]
+cronjobs.batch                                  []                  []               [get list watch]
+jobs.batch                                      []                  []               [get list watch]
+endpointslices.discovery.k8s.io                 []                  []               [get list watch]
+ingresses.networking.k8s.io                     []                  []               [get list watch]
+networkpolicies.networking.k8s.io               []                  []               [get list watch]
+poddisruptionbudgets.policy                     []                  []               [get list watch]
+rolebindings.rbac.authorization.k8s.io          []                  []               [get list watch]
+roles.rbac.authorization.k8s.io                 []                  []               [get list watch]
+

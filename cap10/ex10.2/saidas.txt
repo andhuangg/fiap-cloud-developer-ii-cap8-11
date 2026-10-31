@@ -1,0 +1,177 @@
+$ docker build -q -t store-api:vuln antes/
+# 2026-10-31 17:28:39 -03
+sha256:277f0c03b3dc204ba4e4b2cb1d792093b25167d910ada2198986a107e3f470ec
+
+$ docker images store-api:vuln --format '{{.Repository}}:{{.Tag}}  {{.Size}}'
+# 2026-10-31 17:29:25 -03
+store-api:vuln  1.7GB
+
+$ docker run --rm store-api:vuln id
+# 2026-10-31 17:29:25 -03
+uid=0(root) gid=0(root) groups=0(root)
+
+$ docker run --rm store-api:vuln cat /app/.env
+# 2026-10-31 17:29:27 -03
+DB_PASSWORD=senha-de-producao-FAKE
+AWS_SECRET_ACCESS_KEY=FAKE-NAO-E-REAL
+
+$ trivy image -q --scanners vuln --severity HIGH,CRITICAL store-api:vuln 2>&1 | grep -E '^Total|^store-api|^Python|^Report|│ (starlette|fastapi|uvicorn|pip|setuptools|h11)' | head -30
+# 2026-10-31 17:29:56 -03
+Report Summary
+store-api:vuln (debian 13.7)
+Total: 469 (HIGH: 453, CRITICAL: 16)
+Python (python-pkg)
+Total: 3 (HIGH: 3, CRITICAL: 0)
+│ starlette (METADATA) │ CVE-2025-62727 │ HIGH     │ fixed  │ 0.41.3            │ 0.49.1        │ starlette: Starlette DoS via Range header merging            │
+│                      │ CVE-2026-48818 │          │        │                   │ 1.1.0         │ starlette: Starlette: SSRF and NTLM credential theft via UNC │
+│                      │ CVE-2026-54283 │          │        │                   │ 1.3.1         │ starlette: Starlette: request.form() limits silently ignored │
+
+$ docker build -q -t store-api:1.1 depois/
+# 2026-10-31 17:30:51 -03
+sha256:cb51e214a562c5c318fb870115684f8166fccff6ea4a2ed82789e3a80ee2da02
+
+$ docker images store-api --format '{{.Repository}}:{{.Tag}}  {{.Size}}' | grep -E 'vuln|1.1'
+# 2026-10-31 17:31:24 -03
+store-api:1.1  147MB
+store-api:vuln  1.7GB
+
+$ docker image inspect store-api:vuln --format '{{.Size}}'; docker image inspect store-api:1.1 --format '{{.Size}}'
+# 2026-10-31 17:31:25 -03
+428723779
+31219074
+
+$ docker image inspect store-api:1.1 --format 'User={{.Config.User}} Entrypoint={{.Config.Entrypoint}}'
+# 2026-10-31 17:31:25 -03
+User=65532:65532 Entrypoint=[/opt/venv/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8000]
+
+$ curl -s localhost:18000/health; echo; curl -s localhost:18000/produtos; echo
+# 2026-10-31 17:31:28 -03
+{"status":"ok","host":"4180bbc28483"}
+[{"id":1,"nome":"Teclado","preco":199.9}]
+
+$ docker exec t11 id; echo exit=$?
+# 2026-10-31 17:31:28 -03
+OCI runtime exec failed: exec failed: unable to start container process: exec: "id": executable file not found in $PATH: unknown
+exit=127
+
+$ docker exec t11 /opt/venv/bin/python3 -c 'import os; print("uid", os.getuid(), "gid", os.getgid())'
+# 2026-10-31 17:31:28 -03
+uid 65532 gid 65532
+
+$ docker exec t11 /opt/venv/bin/python3 -c 'import os; print(".env existe na imagem?", os.path.exists("/app/.env"))'
+# 2026-10-31 17:31:28 -03
+.env existe na imagem? False
+
+$ docker exec t11 /opt/venv/bin/python3 -c 'import fastapi, starlette, uvicorn; print(fastapi.__version__, starlette.__version__, uvicorn.__version__)'
+# 2026-10-31 17:31:29 -03
+0.162.0 1.10.0 0.54.0
+
+$ grep -E '^Total|^store-api|^Python|Report Summary' -A0 relatorio-antes.txt
+# 2026-10-31 17:31:44 -03
+Report Summary
+store-api:vuln (debian 13.7)
+Total: 469 (HIGH: 453, CRITICAL: 16)
+Python (python-pkg)
+Total: 3 (HIGH: 3, CRITICAL: 0)
+
+$ grep -E '^Total|^store-api|^Python' relatorio-depois.txt
+# 2026-10-31 17:31:44 -03
+store-api:1.1 (debian 12.13)
+Total: 62 (HIGH: 60, CRITICAL: 2)
+
+$ trivy image -q --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed store-api:vuln 2>&1 | grep -E '^Total|^store-api|^Python'
+# 2026-10-31 17:31:44 -03
+store-api:vuln (debian 13.7)
+Total: 156 (HIGH: 156, CRITICAL: 0)
+Python (python-pkg)
+Total: 3 (HIGH: 3, CRITICAL: 0)
+
+$ trivy image -q --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed store-api:1.1 2>&1 | grep -E '^Total|^store-api|^Python'
+# 2026-10-31 17:31:45 -03
+store-api:1.1 (debian 12.13)
+Total: 45 (HIGH: 45, CRITICAL: 0)
+
+$ sed -n '/Report Summary/,/^Legend/p' relatorio-depois.txt
+# 2026-10-31 17:31:45 -03
+Report Summary
+
+┌──────────────────────────────────────────────────────────────────────────────────┬────────────┬─────────────────┐
+│                                      Target                                      │    Type    │ Vulnerabilities │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ store-api:1.1 (debian 12.13)                                                     │   debian   │       62        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/annotated_doc-0.0.5.dist-info/METADATA     │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/annotated_types-0.8.0.dist-info/METADATA   │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/anyio-4.15.1.dist-info/METADATA            │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/click-8.5.0.dist-info/METADATA             │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/fastapi-0.162.0.dist-info/METADATA         │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/h11-0.16.0.dist-info/METADATA              │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/httptools-0.9.0.dist-info/METADATA         │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/idna-3.20.dist-info/METADATA               │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/opentelemetry_api-1.45.2.dist-info/METADA- │ python-pkg │        0        │
+│ TA                                                                               │            │                 │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/pydantic-2.14.2.dist-info/METADATA         │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/pydantic_core-2.50.2.dist-info/METADATA    │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/python_dotenv-1.2.4.dist-info/METADATA     │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/pyyaml-6.0.3.dist-info/METADATA            │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/starlette-1.10.0.dist-info/METADATA        │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/typing_extensions-4.16.0.dist-info/METADA- │ python-pkg │        0        │
+│ TA                                                                               │            │                 │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/typing_inspection-0.4.4.dist-info/METADATA │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/uvicorn-0.54.0.dist-info/METADATA          │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/uvloop-0.23.0.dist-info/METADATA           │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/watchfiles-1.3.0.dist-info/METADATA        │ python-pkg │        0        │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┤
+│ opt/venv/lib/python3.11/site-packages/websockets-17.4.dist-info/METADATA         │ python-pkg │        0        │
+└──────────────────────────────────────────────────────────────────────────────────┴────────────┴─────────────────┘
+Legend:
+
+$ trivy image -q --format cyclonedx --output store-api-sbom.json store-api:1.1 && ls -l store-api-sbom.json
+# 2026-10-31 17:31:45 -03
+-rw-r--r--@ 1 huang  staff  94538 31 out 17:31 store-api-sbom.json
+
+$ jq '.components | length' store-api-sbom.json
+# 2026-10-31 17:31:45 -03
+55
+
+$ jq '.components | length' /private/tmp/claude-501/-Users-huang/2a30e003-12cd-4ff9-bcf8-2411c699a893/scratchpad/sbom-vuln.json   # SBOM da imagem antiga, so para a tabela
+# 2026-10-31 17:31:45 -03
+487
+
+$ jq -r '.bomFormat + " " + .specVersion' store-api-sbom.json
+# 2026-10-31 17:31:45 -03
+CycloneDX 1.7
+
+$ jq -r '.components[] | select(.name=="starlette" or .name=="fastapi" or .name=="uvicorn") | .name + " " + .version' store-api-sbom.json
+# 2026-10-31 17:31:45 -03
+fastapi 0.162.0
+starlette 1.10.0
+uvicorn 0.54.0
+
+### porta de qualidade (CI)
+$ trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed -q store-api:1.1 >/dev/null; echo exit=$?
+# 2026-10-31 17:31:45 -03
+exit=0
+
+$ trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed -q store-api:vuln >/dev/null; echo exit=$?
+# 2026-10-31 17:31:47 -03
+exit=1
+

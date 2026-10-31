@@ -1,0 +1,19 @@
+# namespaces (wave -1 interna) e policies Kyverno da FIAP Store: precisam existir ANTES das apps
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fiap-store-infra
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-1"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: plataforma
+  source:
+    repoURL: https://github.com/andhuangg/fiap-store-config.git
+    targetRevision: main
+    path: infra/base
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: store-dev
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}

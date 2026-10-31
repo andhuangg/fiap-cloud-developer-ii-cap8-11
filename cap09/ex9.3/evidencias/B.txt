@@ -1,0 +1,65 @@
+$ kubectl apply -f antes/B.yaml
+# 2026-10-31 17:23:35 -03
+role.rbac.authorization.k8s.io/cenario-b created
+rolebinding.rbac.authorization.k8s.io/cenario-b created
+
+$ kubectl get deployments -n store-dev --as=user.b
+# 2026-10-31 17:23:36 -03
+Error from server (Forbidden): deployments.apps is forbidden: User "user.b" cannot list resource "deployments" in API group "apps" in the namespace "store-dev"
+
+$ kubectl auth can-i list deployments.apps -n store-dev --as=user.b
+# 2026-10-31 17:23:36 -03
+no
+
+$ kubectl get role cenario-b -n store-dev -o jsonpath='{.rules}'; echo
+# 2026-10-31 17:23:36 -03
+[{"apiGroups":[""],"resources":["deployments"],"verbs":["get","list","watch"]}]
+
+### CORRECAO: apiGroups [""] -> ["apps"] (nada mais muda)
+$ diff -u antes/B.yaml depois/B.yaml
+# 2026-10-31 17:23:36 -03
+--- antes/B.yaml	2026-10-31 17:23:24
++++ depois/B.yaml	2026-10-31 17:23:24
+@@ -4,7 +4,7 @@
+   name: cenario-b
+   namespace: store-dev
+ rules:
+-  - apiGroups: [""]
++  - apiGroups: ["apps"]
+     resources: ["deployments"]
+     verbs: ["get","list","watch"]
+ ---
+
+$ kubectl apply -f depois/B.yaml
+# 2026-10-31 17:23:36 -03
+role.rbac.authorization.k8s.io/cenario-b configured
+rolebinding.rbac.authorization.k8s.io/cenario-b unchanged
+
+$ kubectl get deployments -n store-dev --as=user.b
+# 2026-10-31 17:23:37 -03
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE
+app-teste   1/1     1            1           13s
+redis       1/1     1            1           5m50s
+store-api   2/2     2            2           8m8s
+
+$ kubectl auth can-i list deployments.apps -n store-dev --as=user.b
+# 2026-10-31 17:23:37 -03
+yes
+
+### PERMISSAO ADJACENTE continua negada
+$ kubectl auth can-i delete deployments.apps -n store-dev --as=user.b
+# 2026-10-31 17:23:37 -03
+no
+
+$ kubectl auth can-i list statefulsets.apps -n store-dev --as=user.b
+# 2026-10-31 17:23:37 -03
+no
+
+$ kubectl get statefulsets -n store-dev --as=user.b
+# 2026-10-31 17:23:37 -03
+Error from server (Forbidden): statefulsets.apps is forbidden: User "user.b" cannot list resource "statefulsets" in API group "apps" in the namespace "store-dev"
+
+$ kubectl auth can-i list pods -n store-dev --as=user.b
+# 2026-10-31 17:23:37 -03
+no
+

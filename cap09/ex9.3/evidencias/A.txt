@@ -1,0 +1,66 @@
+$ kubectl apply -f antes/A.yaml
+# 2026-10-31 17:23:32 -03
+role.rbac.authorization.k8s.io/cenario-a created
+rolebinding.rbac.authorization.k8s.io/cenario-a created
+
+$ kubectl get pods -n store-dev --as=user.a | head -3
+# 2026-10-31 17:23:33 -03
+NAME                                 READY   STATUS      RESTARTS   AGE
+app-teste-84f7548856-5nn22           1/1     Running     0          9s
+cliente                              1/1     Running     0          9m14s
+
+$ kubectl logs store-api-5f986f48b9-n7vsr -n store-dev --as=user.a
+# 2026-10-31 17:23:33 -03
+Error from server (Forbidden): pods "store-api-5f986f48b9-n7vsr" is forbidden: User "user.a" cannot get resource "pods/log" in API group "" in the namespace "store-dev"
+
+$ kubectl auth can-i get pods/log -n store-dev --as=user.a
+# 2026-10-31 17:23:33 -03
+yes
+
+$ kubectl auth can-i get pods --subresource=log -n store-dev --as=user.a
+# 2026-10-31 17:23:33 -03
+no
+
+### CORRECAO: adicionar apenas pods/log
+$ diff -u antes/A.yaml depois/A.yaml
+# 2026-10-31 17:23:33 -03
+--- antes/A.yaml	2026-10-31 17:23:23
++++ depois/A.yaml	2026-10-31 17:23:23
+@@ -5,7 +5,7 @@
+   namespace: store-dev
+ rules:
+   - apiGroups: [""]
+-    resources: ["pods"]
++    resources: ["pods", "pods/log"]
+     verbs: ["get","list","watch"]
+ ---
+ apiVersion: rbac.authorization.k8s.io/v1
+
+$ kubectl apply -f depois/A.yaml
+# 2026-10-31 17:23:33 -03
+role.rbac.authorization.k8s.io/cenario-a configured
+rolebinding.rbac.authorization.k8s.io/cenario-a unchanged
+
+$ kubectl logs store-api-5f986f48b9-n7vsr -n store-dev --as=user.a | head -3
+# 2026-10-31 17:23:34 -03
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+
+$ kubectl auth can-i get pods --subresource=log -n store-dev --as=user.a
+# 2026-10-31 17:23:34 -03
+yes
+
+### PERMISSAO ADJACENTE continua negada
+$ kubectl auth can-i create pods --subresource=exec -n store-dev --as=user.a
+# 2026-10-31 17:23:34 -03
+no
+
+$ kubectl exec -n store-dev store-api-5f986f48b9-n7vsr --as=user.a -- id
+# 2026-10-31 17:23:34 -03
+Error from server (Forbidden): pods "store-api-5f986f48b9-n7vsr" is forbidden: User "user.a" cannot create resource "pods/exec" in API group "" in the namespace "store-dev"
+
+$ kubectl auth can-i delete pods -n store-dev --as=user.a
+# 2026-10-31 17:23:35 -03
+no
+

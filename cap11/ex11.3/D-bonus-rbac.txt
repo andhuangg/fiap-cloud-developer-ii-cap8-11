@@ -1,0 +1,35 @@
+$ kubectl apply -f D-appproject-sem-namespace.yaml
+# 2026-10-31 18:38:44 -03
+appproject.argoproj.io/fiap-store-sem-ns created
+application.argoproj.io/teste-bonus created
+
+$ argocd app get teste-bonus | sed -n '/Sync Status/,$p'
+# 2026-10-31 18:39:09 -03
+Sync Status:        OutOfSync from main (0972205)
+Health Status:      Missing
+
+GROUP  KIND        NAMESPACE    NAME             STATUS     HEALTH      HOOK  MESSAGE
+       Namespace                store-bonus                 SyncFailed        resource :Namespace is not permitted in project fiap-store-sem-ns
+       Service     store-bonus  store-api        OutOfSync  Missing           
+apps   Deployment  store-bonus  store-api        OutOfSync  Missing           
+apps   Deployment  store-bonus  store-relatorio  OutOfSync  Missing           
+
+$ kubectl get application teste-bonus -n argocd -o jsonpath='{.status.operationState.phase}: {.status.operationState.message}'; echo
+# 2026-10-31 18:39:10 -03
+Running: one or more synchronization tasks are not valid. Retrying attempt #2 at 9:39PM.
+
+$ kubectl logs -n argocd statefulset/argocd-application-controller --since=2m | grep teste-bonus | grep -iE 'not permitted|fail|error' | tail -3 | cut -c1-300
+# 2026-10-31 18:39:10 -03
+time="2026-10-31T21:38:45Z" level=info msg="Updating operation state. phase: Running -> Failed, message: '' -> 'one or more synchronization tasks are not valid'" application=argocd/teste-bonus syncId=00031-mHAVn
+time="2026-10-31T21:38:55Z" level=info msg="Adding resource result, status: 'SyncFailed', phase: '', message: 'resource :Namespace is not permitted in project fiap-store-sem-ns'" application=argocd/teste-bonus kind=Namespace name=store-bonus namespace= phase=PreSync syncId=00032-VfpkD
+time="2026-10-31T21:38:55Z" level=info msg="Updating operation state. phase: Running -> Failed, message: 'one or more synchronization tasks are not valid. Retrying attempt #1 at 9:38PM.' -> 'one or more synchronization tasks are not valid'" application=argocd/teste-bonus syncId=00032-VfpkD
+
+$ kubectl get ns store-bonus
+# 2026-10-31 18:39:10 -03
+Error from server (NotFound): namespaces "store-bonus" not found
+
+$ kubectl delete -f D-appproject-sem-namespace.yaml
+# 2026-10-31 18:39:10 -03
+appproject.argoproj.io "fiap-store-sem-ns" deleted
+application.argoproj.io "teste-bonus" deleted
+

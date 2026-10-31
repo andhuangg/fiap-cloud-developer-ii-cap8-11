@@ -1,0 +1,24 @@
+# etapa 0-quebrado: shell form, sem readiness, sem preStop, grace 5s, maxUnavailable 1
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-api
+  namespace: store-rollout
+spec:
+  replicas: 3
+  selector: {matchLabels: {app: store-api}}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels: {app: store-api}
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: store-api
+          image: store-api:shell-a
+          imagePullPolicy: IfNotPresent
+          ports: [{containerPort: 8000}]

@@ -1,0 +1,104 @@
+$ kubectl apply -f manifestos/A-job-quebrado.yaml
+# 2026-10-31 17:12:15 -03
+job.batch/relatorio-quebrado created
+
+$ kubectl get pods -n store-dev -l job-name=relatorio-quebrado
+# 2026-10-31 17:13:05 -03
+NAME                       READY   STATUS   RESTARTS   AGE
+relatorio-quebrado-2knf6   0/1     Error    0          50s
+relatorio-quebrado-2swmj   0/1     Error    0          19s
+relatorio-quebrado-qg5t8   0/1     Error    0          39s
+
+$ kubectl get job relatorio-quebrado -n store-dev
+# 2026-10-31 17:13:05 -03
+NAME                 STATUS   COMPLETIONS   DURATION   AGE
+relatorio-quebrado   Failed   0/1           50s        50s
+
+$ kubectl describe job relatorio-quebrado -n store-dev
+# 2026-10-31 17:13:05 -03
+Name:             relatorio-quebrado
+Namespace:        store-dev
+Selector:         batch.kubernetes.io/controller-uid=c7f4b3a2-b9d7-44e3-99bd-5d6d6f75063a
+Labels:           batch.kubernetes.io/controller-uid=c7f4b3a2-b9d7-44e3-99bd-5d6d6f75063a
+                  batch.kubernetes.io/job-name=relatorio-quebrado
+                  controller-uid=c7f4b3a2-b9d7-44e3-99bd-5d6d6f75063a
+                  job-name=relatorio-quebrado
+Annotations:      <none>
+Parallelism:      1
+Completions:      1
+Completion Mode:  NonIndexed
+Suspend:          false
+Backoff Limit:    2
+Start Time:       Sat, 31 Oct 2026 17:12:15 -0300
+Pods Statuses:    0 Active (0 Ready) / 0 Succeeded / 3 Failed
+Pod Template:
+  Labels:  batch.kubernetes.io/controller-uid=c7f4b3a2-b9d7-44e3-99bd-5d6d6f75063a
+           batch.kubernetes.io/job-name=relatorio-quebrado
+           controller-uid=c7f4b3a2-b9d7-44e3-99bd-5d6d6f75063a
+           job-name=relatorio-quebrado
+  Containers:
+   relatorio:
+    Image:      busybox:1.36
+    Port:       <none>
+    Host Port:  <none>
+    Command:
+      sh
+      -c
+      echo gerando relatorio; cat /dados/vendas.csv
+    Environment:   <none>
+    Mounts:        <none>
+  Volumes:         <none>
+  Node-Selectors:  <none>
+  Tolerations:     <none>
+Events:
+  Type     Reason                Age   From            Message
+  ----     ------                ----  ----            -------
+  Normal   SuccessfulCreate      50s   job-controller  Created pod: relatorio-quebrado-2knf6
+  Normal   SuccessfulCreate      39s   job-controller  Created pod: relatorio-quebrado-qg5t8
+  Normal   SuccessfulCreate      19s   job-controller  Created pod: relatorio-quebrado-2swmj
+  Warning  BackoffLimitExceeded  16s   job-controller  Job has reached the specified backoff limit
+
+$ kubectl get job relatorio-quebrado -n store-dev -o jsonpath='{range .status.conditions[*]}{.type}={.status} reason={.reason} msg={.message}{"
+"}{end}'
+# 2026-10-31 17:13:05 -03
+FailureTarget=True reason=BackoffLimitExceeded msg=Job has reached the specified backoff limit
+Failed=True reason=BackoffLimitExceeded msg=Job has reached the specified backoff limit
+
+$ kubectl logs -n store-dev $(kubectl get pods -n store-dev -l job-name=relatorio-quebrado -o name | head -1)
+# 2026-10-31 17:13:05 -03
+gerando relatorio
+cat: can't open '/dados/vendas.csv': No such file or directory
+
+$ kubectl get pods -n store-dev -l job-name=relatorio-quebrado -o jsonpath='{range .items[*]}{.metadata.name} exitCode={.status.containerStatuses[0].state.terminated.exitCode}{"
+"}{end}'
+# 2026-10-31 17:13:06 -03
+relatorio-quebrado-2knf6 exitCode=1
+relatorio-quebrado-2swmj exitCode=1
+relatorio-quebrado-qg5t8 exitCode=1
+
+### CORRECAO (template de Job e imutavel: deletar e recriar)
+$ kubectl delete job relatorio-quebrado -n store-dev
+# 2026-10-31 17:13:19 -03
+job.batch "relatorio-quebrado" deleted
+
+$ kubectl apply -f manifestos/A-job-corrigido.yaml
+# 2026-10-31 17:13:19 -03
+job.batch/relatorio-quebrado created
+
+$ kubectl wait --for=condition=complete job/relatorio-quebrado -n store-dev --timeout=90s
+# 2026-10-31 17:13:19 -03
+job.batch/relatorio-quebrado condition met
+
+$ kubectl get job,pods -n store-dev -l job-name=relatorio-quebrado
+# 2026-10-31 17:13:23 -03
+NAME                           STATUS     COMPLETIONS   DURATION   AGE
+job.batch/relatorio-quebrado   Complete   1/1           4s         4s
+
+NAME                           READY   STATUS      RESTARTS   AGE
+pod/relatorio-quebrado-vgv96   0/1     Completed   0          4s
+
+$ kubectl logs -n store-dev job/relatorio-quebrado
+# 2026-10-31 17:13:23 -03
+gerando relatorio
+produto,qtd
+

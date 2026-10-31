@@ -1,0 +1,565 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    ambiente: prod
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: v1.33
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.33
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: v1.33
+  name: store-prod
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  labels:
+    ambiente: prod
+  name: quota-store-prod
+  namespace: store-prod
+spec:
+  hard:
+    limits.memory: 4Gi
+    persistentvolumeclaims: "5"
+    pods: "30"
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    services: "10"
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  labels:
+    ambiente: prod
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/part-of: fiap-store
+  name: store-api
+  namespace: store-prod
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  labels:
+    ambiente: prod
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/part-of: fiap-store
+  name: store-front
+  namespace: store-prod
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  labels:
+    ambiente: prod
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/part-of: fiap-store
+  name: store-worker
+  namespace: store-prod
+---
+apiVersion: v1
+data:
+  APP_ENV: prod
+  LOG_LEVEL: info
+kind: ConfigMap
+metadata:
+  labels:
+    ambiente: prod
+  name: store-config-f247tk59d9
+  namespace: store-prod
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    ambiente: prod
+    app: store-api
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/part-of: fiap-store
+  name: store-api
+  namespace: store-prod
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  selector:
+    app: store-api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    ambiente: prod
+    app: store-front
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/part-of: fiap-store
+  name: store-front
+  namespace: store-prod
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  selector:
+    app: store-front
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  labels:
+    ambiente: prod
+  name: limites-padrao
+  namespace: store-prod
+spec:
+  limits:
+  - default:
+      memory: 256Mi
+    defaultRequest:
+      cpu: 50m
+      memory: 64Mi
+    max:
+      cpu: "1"
+      memory: 512Mi
+    type: Container
+---
+apiVersion: scheduling.k8s.io/v1
+description: Cargas criticas da FIAP Store em producao (store-api)
+globalDefault: false
+kind: PriorityClass
+metadata:
+  labels:
+    ambiente: prod
+  name: fiap-store-critico
+preemptionPolicy: PreemptLowerPriority
+value: 100000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    ambiente: prod
+    app: store-api
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/part-of: fiap-store
+  name: store-api
+  namespace: store-prod
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: store-api
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: store-api
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - envFrom:
+        - configMapRef:
+            name: store-config-f247tk59d9
+        image: store-api:1.1
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: 10
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        name: store-api
+        ports:
+        - containerPort: 8000
+          name: http
+        readinessProbe:
+          failureThreshold: 2
+          httpGet:
+            path: /ready
+            port: http
+          periodSeconds: 5
+        resources:
+          limits:
+            memory: 192Mi
+          requests:
+            cpu: 100m
+            memory: 192Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      priorityClassName: fiap-store-critico
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: store-api
+      terminationGracePeriodSeconds: 45
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: store-api
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+      volumes:
+      - emptyDir:
+          sizeLimit: 64Mi
+        name: tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    ambiente: prod
+    app: store-front
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/part-of: fiap-store
+  name: store-front
+  namespace: store-prod
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: store-front
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: store-front
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - image: nginxinc/nginx-unprivileged:1.30-alpine-slim
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 10
+        name: store-front
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 5
+        resources:
+          limits:
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      securityContext:
+        runAsGroup: 101
+        runAsNonRoot: true
+        runAsUser: 101
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: store-front
+      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: store-front
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+      volumes:
+      - emptyDir:
+          sizeLimit: 32Mi
+        name: tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    ambiente: prod
+    app: store-worker
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/part-of: fiap-store
+  name: store-worker
+  namespace: store-prod
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: store-worker
+  template:
+    metadata:
+      labels:
+        app: store-worker
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - |
+          trap 'echo "SIGTERM: finalizando item atual"; exit 0' TERM
+          while true; do echo "$(date +%T) [$APP_ENV] processando fila de pedidos"; sleep 10 & wait $!; done
+        command:
+        - sh
+        - -c
+        envFrom:
+        - configMapRef:
+            name: store-config-f247tk59d9
+        image: busybox:1.36
+        name: store-worker
+        resources:
+          limits:
+            memory: 32Mi
+          requests:
+            cpu: 10m
+            memory: 16Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+      securityContext:
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: store-worker
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: store-worker
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    ambiente: prod
+  name: store-api
+  namespace: store-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: store-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    ambiente: prod
+  name: store-front
+  namespace: store-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: store-front
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    ambiente: prod
+  name: store-api
+  namespace: store-prod
+spec:
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+  maxReplicas: 10
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 70
+        type: Utilization
+    type: Resource
+  minReplicas: 3
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: store-api
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    ambiente: prod
+    release: prometheus
+  name: store-api
+  namespace: store-prod
+spec:
+  endpoints:
+  - interval: 30s
+    path: /metrics
+    port: http
+  selector:
+    matchLabels:
+      app: store-api
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    ambiente: prod
+  name: allow-dns-egress
+  namespace: store-prod
+spec:
+  egress:
+  - ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+  podSelector: {}
+  policyTypes:
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    ambiente: prod
+  name: allow-ingress-to-front
+  namespace: store-prod
+spec:
+  egress:
+  - ports:
+    - port: 8000
+      protocol: TCP
+    to:
+    - podSelector:
+        matchLabels:
+          app: store-api
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+    ports:
+    - port: 8080
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: store-front
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    ambiente: prod
+  name: allow-to-api
+  namespace: store-prod
+spec:
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: store-front
+    - podSelector:
+        matchLabels:
+          app: store-worker
+    ports:
+    - port: 8000
+      protocol: TCP
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+    ports:
+    - port: 8000
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: store-api
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    ambiente: prod
+  name: allow-worker-to-api
+  namespace: store-prod
+spec:
+  egress:
+  - ports:
+    - port: 8000
+      protocol: TCP
+    to:
+    - podSelector:
+        matchLabels:
+          app: store-api
+  podSelector:
+    matchLabels:
+      app: store-worker
+  policyTypes:
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    ambiente: prod
+  name: default-deny-all
+  namespace: store-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

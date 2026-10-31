@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-teste
+  namespace: store-dev
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: app-teste}}
+  template:
+    metadata: {labels: {app: app-teste}}
+    spec:
+      containers:
+        - name: web
+          image: busybox:1.36
+          command: ["sleep","infinity"]

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: store-api
+  namespace: store-rollout
+spec:
+  selector: {app: store-api}
+  ports: [{port: 80, targetPort: 8000}]
+---
+# gerador de carga: busybox com wget em laco (o script e passado via kubectl exec, ver mede-rollout.sh)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: carga
+  namespace: store-rollout
+spec:
+  containers:
+    - name: carga
+      image: busybox:1.36
+      command: ["sleep", "infinity"]

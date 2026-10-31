@@ -1,0 +1,24 @@
+# (c) exec somente em store-dev: Role propria + binding no mesmo namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: qa-exec
+  namespace: store-dev
+rules:
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: qa-exec
+  namespace: store-dev
+subjects:
+  - kind: Group
+    name: fiap:qa
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: qa-exec

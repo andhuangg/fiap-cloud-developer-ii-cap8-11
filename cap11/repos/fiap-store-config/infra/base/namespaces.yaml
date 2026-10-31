@@ -1,0 +1,28 @@
+# namespaces da aplicacao: criados ANTES das apps (sync-wave -1) e com o PSA ja definido
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: store-dev
+  annotations: {argocd.argoproj.io/sync-wave: "-1"}
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.33
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: store-prod
+  annotations: {argocd.argoproj.io/sync-wave: "-1"}
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.33
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: store-serverless
+  annotations: {argocd.argoproj.io/sync-wave: "-1"}
+  labels:
+    # baseline: o queue-proxy injetado pelo Knative nao e controlado por nos
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: v1.33

@@ -1,0 +1,35 @@
+# store-api como Knative Service: escala a zero sem trafego e sobe sob demanda
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: store-api
+  labels: {app: store-api, app.kubernetes.io/part-of: fiap-store}
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "0"
+        autoscaling.knative.dev/max-scale: "20"
+        autoscaling.knative.dev/target: "50"
+    spec:
+      automountServiceAccountToken: false
+      # o Knative recusa securityContext no nivel do Pod (flag kubernetes.podspec-securitycontext
+      # desligada por padrao): os mesmos controles vao no nivel do container
+      containers:
+        - image: ghcr.io/andhuangg/fiap-store-api:1.1
+          ports:
+            - containerPort: 8000
+          env:
+            - {name: APP_ENV, value: serverless}
+          readinessProbe:
+            httpGet: {path: /ready}
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {memory: 128Mi}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile: {type: RuntimeDefault}
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}

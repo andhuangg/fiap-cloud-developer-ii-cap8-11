@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: teste-senha
+  namespace: store-dev
+spec:
+  restartPolicy: Never
+  containers:
+    - name: t
+      image: busybox:1.36
+      command: ["sh", "-c", "echo \"tamanho esperado de 'senha': 5\"; echo \"tamanho de \\$DB_PASSWORD: ${#DB_PASSWORD}\"; printf '%s' \"$DB_PASSWORD\" | od -c; sleep 3600"]
+      env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret-quebra
+              key: DB_PASSWORD

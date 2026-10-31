@@ -1,0 +1,29 @@
+# AppProject SEM Namespace no clusterResourceWhitelist (lista vazia = nenhum recurso de cluster permitido)
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: fiap-store-sem-ns
+  namespace: argocd
+spec:
+  sourceRepos: [https://github.com/andhuangg/fiap-store-config.git]
+  destinations:
+    - {server: https://kubernetes.default.svc, namespace: store-bonus}
+  clusterResourceWhitelist: []
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: teste-bonus
+  namespace: argocd
+spec:
+  project: fiap-store-sem-ns
+  source:
+    repoURL: https://github.com/andhuangg/fiap-store-config.git
+    targetRevision: main
+    path: base
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: store-bonus
+  syncPolicy:
+    automated: {}
+    syncOptions: [CreateNamespace=true]

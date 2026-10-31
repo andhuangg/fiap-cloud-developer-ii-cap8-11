@@ -1,0 +1,319 @@
+$ minikube profile list 2>/dev/null | grep -E 'Profile|cp-bara'; kubectl version 2>/dev/null | grep Server
+# 2026-10-31 17:55:02 -03
+|  Profile   | VM Driver | Runtime |      IP      | Port | Version | Status | Nodes | Active Profile | Active Kubecontext |
+| cp-bara    | docker    | docker  | 192.168.49.2 | 8443 | v1.33.1 | OK     |     1 | *              | *                  |
+Server Version: v1.33.1
+
+$ kubectl create namespace argocd
+# 2026-10-31 17:55:03 -03
+namespace/argocd created
+
+$ kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.13.9/manifests/install.yaml | tail -5
+# 2026-10-31 17:55:03 -03
+networkpolicy.networking.k8s.io/argocd-dex-server-network-policy serverside-applied
+networkpolicy.networking.k8s.io/argocd-notifications-controller-network-policy serverside-applied
+networkpolicy.networking.k8s.io/argocd-redis-network-policy serverside-applied
+networkpolicy.networking.k8s.io/argocd-repo-server-network-policy serverside-applied
+networkpolicy.networking.k8s.io/argocd-server-network-policy serverside-applied
+
+$ kubectl wait --for=condition=available deploy --all -n argocd --timeout=300s
+# 2026-10-31 17:55:05 -03
+deployment.apps/argocd-applicationset-controller condition met
+deployment.apps/argocd-dex-server condition met
+deployment.apps/argocd-notifications-controller condition met
+deployment.apps/argocd-redis condition met
+deployment.apps/argocd-repo-server condition met
+deployment.apps/argocd-server condition met
+
+$ kubectl rollout status statefulset/argocd-application-controller -n argocd --timeout=300s
+# 2026-10-31 17:56:23 -03
+partitioned roll out complete: 1 new pods have been updated...
+
+$ kubectl get pods -n argocd
+# 2026-10-31 17:56:23 -03
+NAME                                               READY   STATUS    RESTARTS   AGE
+argocd-application-controller-0                    1/1     Running   0          78s
+argocd-applicationset-controller-bfc9dbfcf-vn7lf   1/1     Running   0          78s
+argocd-dex-server-bb6f487f7-tpqp6                  1/1     Running   0          78s
+argocd-notifications-controller-c6c8f8796-x54zl    1/1     Running   0          78s
+argocd-redis-668bb965fd-g76gh                      1/1     Running   0          78s
+argocd-repo-server-786595558b-ztxp7                1/1     Running   0          78s
+argocd-server-85c664c579-stgps                     1/1     Running   0          78s
+
+$ kubectl get deploy argocd-server -n argocd -o jsonpath='{.spec.template.spec.containers[0].image}'; echo
+# 2026-10-31 17:56:23 -03
+quay.io/argoproj/argocd:v2.13.9
+
+$ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d | sed -E 's/./*/g'; echo '   (senha inicial recuperada; mascarada na evidencia)'
+# 2026-10-31 17:56:39 -03
+****************   (senha inicial recuperada; mascarada na evidencia)
+
+$ kubectl -n argocd delete secret argocd-initial-admin-secret
+# 2026-10-31 17:57:10 -03
+secret "argocd-initial-admin-secret" deleted
+
+$ kubectl -n argocd get secret argocd-initial-admin-secret
+# 2026-10-31 17:57:40 -03
+Error from server (NotFound): secrets "argocd-initial-admin-secret" not found
+
+$ argocd version --grpc-web 2>&1 | grep -E 'argocd(-server)?:'
+# 2026-10-31 17:57:40 -03
+argocd: v3.5.1+109ca7c.dirty
+
+
+# NOTA: a primeira tentativa de login/troca de senha falhou porque o CLI instalado (argocd v3.5.1) nao fala
+# gRPC com o servidor v2.13.9; o secret inicial foi apagado logo depois (ordem errada, sem dano: a senha
+# inicial continuava valida). Refeito com o CLI v2.13.9, mesma versao do servidor:
+$ argocd login localhost:8080 --username admin --password <senha-inicial> --insecure   (CLI v2.13.9)
+'admin:login' logged in successfully
+
+$ argocd account update-password --current-password <senha-inicial> --new-password <nova>
+Password updated
+
+$ argocd login localhost:8080 --username admin --password "$(cat /Users/huang/Downloads/cp-bara/.lab/argocd-senha.txt)" --insecure
+# 2026-10-31 17:58:24 -03
+'admin:login' logged in successfully
+Context 'localhost:8080' updated
+
+$ kubectl -n argocd get secret argocd-initial-admin-secret
+# 2026-10-31 17:58:25 -03
+Error from server (NotFound): secrets "argocd-initial-admin-secret" not found
+
+$ argocd version | grep -E '^argocd'
+# 2026-10-31 17:58:25 -03
+argocd: v2.13.9+a70b229
+argocd-server: v2.13.9+a70b229
+
+$ kubectl kustomize overlays/dev   # validacao local ANTES do commit
+# 2026-10-31 18:04:18 -03
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: store-api
+    app.kubernetes.io/part-of: fiap-store
+  name: store-api
+  namespace: store-dev
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  selector:
+    app: store-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: store-api
+    app.kubernetes.io/part-of: fiap-store
+  name: store-api
+  namespace: store-dev
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: store-api
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: store-api
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: APP_ENV
+          value: dev
+        image: ghcr.io/andhuangg/fiap-store-api:1.0
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        name: store-api
+        ports:
+        - containerPort: 8000
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          periodSeconds: 5
+        resources:
+          limits:
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir:
+          sizeLimit: 64Mi
+        name: tmp
+
+$ git log --oneline -1; git remote -v | head -1
+# 2026-10-31 18:07:15 -03
+850b556 base + overlay dev da store-api (2 replicas, tag 1.0)
+origin	https://github.com/andhuangg/fiap-store-config.git (fetch)
+
+$ kubectl get application fiap-store-dev -n argocd -o jsonpath='{.metadata.finalizers}'; echo
+# 2026-10-31 18:07:15 -03
+["resources-finalizer.argocd.argoproj.io"]
+
+# NOTA: o primeiro sync deu ErrImagePull "no matching manifest for linux/arm64/v8": o CI publicava so amd64 e o
+# minikube roda em Apple Silicon. O CI passou a publicar amd64+arm64 e a 1.0 foi republicada.
+
+$ argocd app get fiap-store-dev
+# 2026-10-31 18:16:09 -03
+Name:               argocd/fiap-store-dev
+Project:            default
+Server:             https://kubernetes.default.svc
+Namespace:          store-dev
+URL:                https://localhost:8080/applications/fiap-store-dev
+Source:
+- Repo:             https://github.com/andhuangg/fiap-store-config.git
+  Target:           main
+  Path:             overlays/dev
+SyncWindow:         Sync Allowed
+Sync Policy:        Automated (Prune)
+Sync Status:        Synced to main (850b556)
+Health Status:      Healthy
+
+GROUP  KIND        NAMESPACE  NAME       STATUS     HEALTH   HOOK  MESSAGE
+       Namespace              store-dev  Succeeded  Synced         namespace/store-dev serverside-applied
+       Service     store-dev  store-api  Synced     Healthy        service/store-api created
+apps   Deployment  store-dev  store-api  Synced     Healthy        deployment.apps/store-api created
+
+########## ANTES do commit (2 replicas) ##########
+$ kubectl get pods -n store-dev -o wide
+# 2026-10-31 18:16:10 -03
+NAME                         READY   STATUS    RESTARTS   AGE   IP             NODE      NOMINATED NODE   READINESS GATES
+store-api-7b88c88757-q4dfs   1/1     Running   0          17s   10.244.0.172   cp-bara   <none>           <none>
+store-api-7b88c88757-zdv9l   1/1     Running   0          17s   10.244.0.173   cp-bara   <none>           <none>
+
+$ kubectl exec -n store-dev deploy/store-api -- /opt/venv/bin/python3 -c 'import urllib.request;print(urllib.request.urlopen("http://localhost:8000/versao").read().decode())'
+# 2026-10-31 18:16:10 -03
+{"versao":"1.0","pod":"store-api-7b88c88757-q4dfs"}
+
+$ kubectl get application fiap-store-dev -n argocd -o jsonpath='{.spec.syncPolicy}'; echo
+# 2026-10-31 18:16:25 -03
+{"automated":{"prune":true,"selfHeal":true},"managedNamespaceMetadata":{"labels":{"pod-security.kubernetes.io/enforce":"restricted","pod-security.kubernetes.io/enforce-version":"v1.33"}},"syncOptions":["CreateNamespace=true"]}
+
+########## COMMIT (nenhum comando de escrita no cluster daqui em diante) ##########
+$ git -C /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-config log -1 --format='commit %h | autor %an | data do commit %cd' --date=format:'%Y-%m-%d %H:%M:%S %z'
+# 2026-10-31 18:16:27 -03
+commit 42151e6 | autor andhuangg | data do commit 2026-10-31 18:16:25 -0300
+
+$ git -C /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-config show --stat --format= HEAD; git -C /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-config diff HEAD~1 HEAD
+# 2026-10-31 18:16:27 -03
+ overlays/dev/kustomization.yaml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+diff --git a/overlays/dev/kustomization.yaml b/overlays/dev/kustomization.yaml
+index 055d2e1..d5f2561 100644
+--- a/overlays/dev/kustomization.yaml
++++ b/overlays/dev/kustomization.yaml
+@@ -5,7 +5,7 @@ resources:
+   - ../../base
+ replicas:
+   - name: store-api
+-    count: 2
++    count: 4
+ images:
+   - name: ghcr.io/andhuangg/fiap-store-api
+     newTag: "1.0"
+
+18:16:28 pods_running=2 app=850b556 Synced/Healthy
+18:16:39 pods_running=2 app=850b556 Synced/Healthy
+18:16:50 pods_running=2 app=850b556 Synced/Healthy
+18:17:01 pods_running=2 app=850b556 Synced/Healthy
+18:17:11 pods_running=2 app=850b556 Synced/Healthy
+18:17:22 pods_running=2 app=850b556 Synced/Healthy
+18:17:33 pods_running=2 app=850b556 Synced/Healthy
+18:17:44 pods_running=2 app=850b556 Synced/Healthy
+18:17:54 pods_running=2 app=850b556 Synced/Healthy
+18:18:05 pods_running=2 app=850b556 Synced/Healthy
+18:18:16 pods_running=2 app=850b556 Synced/Healthy
+18:18:26 pods_running=2 app=850b556 Synced/Healthy
+18:18:37 pods_running=2 app=850b556 Synced/Healthy
+18:18:48 pods_running=2 app=850b556 Synced/Healthy
+18:18:59 pods_running=2 app=850b556 Synced/Healthy
+18:19:09 pods_running=2 app=850b556 Synced/Healthy
+18:19:20 pods_running=2 app=850b556 Synced/Healthy
+18:19:31 pods_running=2 app=850b556 Synced/Healthy
+18:19:41 pods_running=2 app=850b556 Synced/Healthy
+18:19:53 pods_running=2 app=850b556 Synced/Healthy
+18:20:04 pods_running=4 app=42151e6 Synced/Healthy
+########## DEPOIS (sem nenhum kubectl apply/scale) ##########
+$ argocd app get fiap-store-dev
+# 2026-10-31 18:20:04 -03
+Name:               argocd/fiap-store-dev
+Project:            default
+Server:             https://kubernetes.default.svc
+Namespace:          store-dev
+URL:                https://localhost:8080/applications/fiap-store-dev
+Source:
+- Repo:             https://github.com/andhuangg/fiap-store-config.git
+  Target:           main
+  Path:             overlays/dev
+SyncWindow:         Sync Allowed
+Sync Policy:        Automated (Prune)
+Sync Status:        Synced to main (42151e6)
+Health Status:      Healthy
+
+GROUP  KIND        NAMESPACE  NAME       STATUS     HEALTH   HOOK  MESSAGE
+       Namespace              store-dev  Succeeded  Synced         namespace/store-dev serverside-applied
+       Service     store-dev  store-api  Synced     Healthy        service/store-api unchanged
+apps   Deployment  store-dev  store-api  Synced     Healthy        deployment.apps/store-api configured
+
+$ kubectl get pods -n store-dev -o wide --sort-by=.metadata.creationTimestamp
+# 2026-10-31 18:20:04 -03
+NAME                         READY   STATUS    RESTARTS   AGE     IP             NODE      NOMINATED NODE   READINESS GATES
+store-api-7b88c88757-q4dfs   1/1     Running   0          4m11s   10.244.0.172   cp-bara   <none>           <none>
+store-api-7b88c88757-zdv9l   1/1     Running   0          4m11s   10.244.0.173   cp-bara   <none>           <none>
+store-api-7b88c88757-4qcf8   1/1     Running   0          7s      10.244.0.174   cp-bara   <none>           <none>
+store-api-7b88c88757-tktjt   1/1     Running   0          7s      10.244.0.175   cp-bara   <none>           <none>
+
+$ kubectl get pods -n store-dev --sort-by=.metadata.creationTimestamp -o custom-columns='POD:.metadata.name,CRIADO_EM_UTC:.metadata.creationTimestamp'
+# 2026-10-31 18:20:04 -03
+POD                          CRIADO_EM_UTC
+store-api-7b88c88757-q4dfs   2026-10-31T21:15:53Z
+store-api-7b88c88757-zdv9l   2026-10-31T21:15:53Z
+store-api-7b88c88757-4qcf8   2026-10-31T21:19:57Z
+store-api-7b88c88757-tktjt   2026-10-31T21:19:57Z
+
+$ argocd app history fiap-store-dev
+# 2026-10-31 18:20:04 -03
+SOURCE  https://github.com/andhuangg/fiap-store-config.git
+ID      DATE                           REVISION
+0       2026-10-31 18:07:20 -0300 -03  main (850b556)
+1       2026-10-31 18:19:57 -0300 -03  main (42151e6)
+

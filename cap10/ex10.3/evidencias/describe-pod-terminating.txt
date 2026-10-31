@@ -1,0 +1,62 @@
+$ kubectl describe pod store-api-556c9dff96-bk2th -n store-rollout   (Pod em Terminating durante o rollout)
+Name:                      store-api-556c9dff96-bk2th
+Namespace:                 store-rollout
+Priority:                  0
+Service Account:           default
+Node:                      cp-bara/192.168.49.2
+Start Time:                Sat, 31 Oct 2026 17:43:53 -0300
+Labels:                    app=store-api
+                           pod-template-hash=556c9dff96
+Annotations:               <none>
+Status:                    Terminating (lasts <invalid>)
+Termination Grace Period:  45s
+IP:                        10.244.0.138
+IPs:
+  IP:           10.244.0.138
+Controlled By:  ReplicaSet/store-api-556c9dff96
+Containers:
+  store-api:
+    Container ID:   docker://0cf5d9a64addab437fc91d2aafe3c5cc2f8770a63566a21329cd791ca38c281e
+    Image:          store-api:lifespan-a
+    Image ID:       docker://sha256:d8c201fac7b00a540b445049eff147aa8bb94cf764ca5de8c1cf0c58eb7a78be
+    Port:           8000/TCP
+    Host Port:      0/TCP
+    State:          Running
+      Started:      Sat, 31 Oct 2026 17:43:54 -0300
+    Ready:          True
+    Restart Count:  0
+    Readiness:      http-get http://:8000/ready delay=0s timeout=1s period=2s #success=1 #failure=1
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-dfrlc (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  kube-api-access-dfrlc:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  23s   default-scheduler  Successfully assigned store-rollout/store-api-556c9dff96-bk2th to cp-bara
+  Normal  Pulled     22s   kubelet            Container image "store-api:lifespan-a" already present on machine
+  Normal  Created    22s   kubelet            Created container: store-api
+  Normal  Started    22s   kubelet            Started container store-api
+  Normal  Killing    4s    kubelet            Stopping container store-api
+
+$ kubectl get pod store-api-556c9dff96-bk2th -o jsonpath lifecycle/grace
+{"preStop":{"exec":{"command":["sleep","10"]}}}
+terminationGracePeriodSeconds=45
+deletionTimestamp=2026-10-31T20:44:57Z

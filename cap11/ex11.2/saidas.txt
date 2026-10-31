@@ -1,0 +1,222 @@
+$ kubectl apply -n argocd -f apps/project.yaml -f apps/store-dev.yaml -f apps/store-prod.yaml
+# 2026-10-31 18:27:37 -03
+appproject.argoproj.io/fiap-store created
+application.argoproj.io/fiap-store-dev configured
+Warning: metadata.finalizers: "resources-finalizer.argocd.argoproj.io": prefer a domain-qualified finalizer name including a path (/) to avoid accidental conflicts with other finalizer writers
+application.argoproj.io/fiap-store-prod created
+
+$ argocd app list
+# 2026-10-31 18:27:49 -03
+NAME                    CLUSTER                         NAMESPACE   PROJECT     STATUS  HEALTH   SYNCPOLICY  CONDITIONS  REPO                                                PATH           TARGET
+argocd/fiap-store-dev   https://kubernetes.default.svc  store-dev   fiap-store  Synced  Healthy  Auto-Prune  <none>      https://github.com/andhuangg/fiap-store-config.git  overlays/dev   main
+argocd/fiap-store-prod  https://kubernetes.default.svc  store-prod  fiap-store  Synced  Healthy  Auto-Prune  <none>      https://github.com/andhuangg/fiap-store-config.git  overlays/prod  main
+
+$ kubectl get deploy,pdb -n store-dev; kubectl get deploy,pdb -n store-prod
+# 2026-10-31 18:27:49 -03
+NAME                        READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/store-api   4/4     4            4           20m
+NAME                        READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/store-api   4/4     4            4           8s
+
+NAME                                   MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/store-api   2               N/A               2                     8s
+
+########## RELEASE 1.1: commit direto em overlays/dev ##########
+$ git log -1 --stat --format='%h %s'
+# 2026-10-31 18:27:51 -03
+8bc5cfc dev: store-api 1.1
+
+ overlays/dev/kustomization.yaml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+$ argocd app get fiap-store-dev | sed -n '/Sync Status/,/Health/p'
+# 2026-10-31 18:28:14 -03
+Sync Status:        Synced to main (8bc5cfc)
+Health Status:      Healthy
+
+$ kubectl get deploy -n store-dev -o jsonpath='{.items[*].spec.template.spec.containers[*].image}'; echo
+# 2026-10-31 18:28:14 -03
+ghcr.io/andhuangg/fiap-store-api:1.1
+
+$ kubectl exec -n store-dev deploy/store-api -- /opt/venv/bin/python3 -c 'import urllib.request;print(urllib.request.urlopen("http://localhost:8000/versao").read().decode())'
+# 2026-10-31 18:28:14 -03
+{"versao":"1.1","pod":"store-api-9c76d975b-w7rt6"}
+
+########## PR DE PROMOCAO PARA PROD ##########
+$ gh pr view 1 -R andhuangg/fiap-store-config --json number,title,url,additions,deletions,changedFiles --jq '"PR #\(.number) \(.title)
+\(.url)
+additions=\(.additions) deletions=\(.deletions) changedFiles=\(.changedFiles)"'
+# 2026-10-31 18:28:53 -03
+PR #1 Promover store-api 1.1 para prod
+https://github.com/andhuangg/fiap-store-config/pull/1
+additions=1 deletions=1 changedFiles=1
+
+$ gh pr diff 1 -R andhuangg/fiap-store-config
+# 2026-10-31 18:28:54 -03
+diff --git a/overlays/prod/kustomization.yaml b/overlays/prod/kustomization.yaml
+index c653854..b7b14be 100644
+--- a/overlays/prod/kustomization.yaml
++++ b/overlays/prod/kustomization.yaml
+@@ -10,6 +10,6 @@ replicas:
+ images:
+ - name: ghcr.io/andhuangg/fiap-store-api
+   newName: ghcr.io/andhuangg/fiap-store-api
+-  newTag: "1.0"
++  newTag: "1.1"
+ patches:
+ - path: patch-prod.yaml
+
+$ gh pr merge 1 -R andhuangg/fiap-store-config --merge --delete-branch --subject 'Promover store-api 1.1 para prod (#1)'
+# 2026-10-31 18:28:54 -03
+
+$ git log --oneline -4
+# 2026-10-31 18:28:59 -03
+3474f4b Promover store-api 1.1 para prod (#1)
+7ba1a2b prod: promove store-api 1.0 -> 1.1
+be74739 chore: kustomization.yaml no formato canonico do kustomize (bumps futuros viram diff de 1 linha)
+8bc5cfc dev: store-api 1.1
+
+$ argocd app get fiap-store-prod
+# 2026-10-31 18:29:24 -03
+Name:               argocd/fiap-store-prod
+Project:            fiap-store
+Server:             https://kubernetes.default.svc
+Namespace:          store-prod
+URL:                https://localhost:8080/applications/fiap-store-prod
+Source:
+- Repo:             https://github.com/andhuangg/fiap-store-config.git
+  Target:           main
+  Path:             overlays/prod
+SyncWindow:         Sync Allowed
+Sync Policy:        Automated (Prune)
+Sync Status:        Synced to main (3474f4b)
+Health Status:      Healthy
+
+GROUP   KIND                 NAMESPACE   NAME        STATUS     HEALTH   HOOK  MESSAGE
+        Namespace                        store-prod  Succeeded  Synced         namespace/store-prod serverside-applied
+policy  PodDisruptionBudget  store-prod  store-api   Synced     Healthy        poddisruptionbudget.policy/store-api configured
+        Service              store-prod  store-api   Synced     Healthy        service/store-api unchanged
+apps    Deployment           store-prod  store-api   Synced     Healthy        deployment.apps/store-api configured
+
+$ kubectl get deploy -n store-dev -o jsonpath='{.items[*].spec.template.spec.containers[*].image}'; echo
+# 2026-10-31 18:29:24 -03
+ghcr.io/andhuangg/fiap-store-api:1.1
+
+$ kubectl get deploy -n store-prod -o jsonpath='{.items[*].spec.template.spec.containers[*].image}'; echo
+# 2026-10-31 18:29:24 -03
+ghcr.io/andhuangg/fiap-store-api:1.1
+
+$ kubectl get deploy,pdb -n store-dev; echo; kubectl get deploy,pdb -n store-prod
+# 2026-10-31 18:29:24 -03
+NAME                        READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/store-api   4/4     4            4           22m
+
+NAME                        READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/store-api   4/4     4            4           103s
+
+NAME                                   MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/store-api   2               N/A               2                     103s
+
+$ kubectl exec -n store-prod deploy/store-api -- /opt/venv/bin/python3 -c 'import urllib.request;print(urllib.request.urlopen("http://localhost:8000/info").read().decode())'
+# 2026-10-31 18:29:24 -03
+{"env":"prod","db_host":"nao-configurado","pod":"store-api-6b6cdd4488-dpfwf"}
+
+$ argocd app list
+# 2026-10-31 18:29:24 -03
+NAME                    CLUSTER                         NAMESPACE   PROJECT     STATUS  HEALTH   SYNCPOLICY  CONDITIONS  REPO                                                PATH           TARGET
+argocd/fiap-store-dev   https://kubernetes.default.svc  store-dev   fiap-store  Synced  Healthy  Auto-Prune  <none>      https://github.com/andhuangg/fiap-store-config.git  overlays/dev   main
+argocd/fiap-store-prod  https://kubernetes.default.svc  store-prod  fiap-store  Synced  Healthy  Auto-Prune  <none>      https://github.com/andhuangg/fiap-store-config.git  overlays/prod  main
+
+########## COEXISTENCIA COM IMAGENS DIFERENTES (historico de ReplicaSets: quando cada imagem entrou no ar) ##########
+$ kubectl get rs -n store-dev --sort-by=.metadata.creationTimestamp -o 'custom-columns=NAMESPACE:.metadata.namespace,REPLICASET:.metadata.name,IMAGEM:.spec.template.spec.containers[0].image,CRIADO_UTC:.metadata.creationTimestamp,REPLICAS:.spec.replicas'
+# 2026-10-31 18:29:52 -03
+NAMESPACE   REPLICASET             IMAGEM                                 CRIADO_UTC             REPLICAS
+store-dev   store-api-7b88c88757   ghcr.io/andhuangg/fiap-store-api:1.0   2026-10-31T21:07:20Z   0
+store-dev   store-api-9c76d975b    ghcr.io/andhuangg/fiap-store-api:1.1   2026-10-31T21:27:55Z   4
+
+$ kubectl get rs -n store-prod --sort-by=.metadata.creationTimestamp -o 'custom-columns=NAMESPACE:.metadata.namespace,REPLICASET:.metadata.name,IMAGEM:.spec.template.spec.containers[0].image,CRIADO_UTC:.metadata.creationTimestamp,REPLICAS:.spec.replicas'
+# 2026-10-31 18:29:52 -03
+NAMESPACE    REPLICASET             IMAGEM                                 CRIADO_UTC             REPLICAS
+store-prod   store-api-5d656cd9c7   ghcr.io/andhuangg/fiap-store-api:1.0   2026-10-31T21:27:41Z   0
+store-prod   store-api-6b6cdd4488   ghcr.io/andhuangg/fiap-store-api:1.1   2026-10-31T21:29:04Z   4
+
+$ argocd app history fiap-store-prod
+# 2026-10-31 18:29:52 -03
+SOURCE  https://github.com/andhuangg/fiap-store-config.git
+ID      DATE                           REVISION
+0       2026-10-31 18:27:41 -0300 -03  main (9f39c39)
+1       2026-10-31 18:29:04 -0300 -03  main (3474f4b)
+
+$ argocd app manifests fiap-store-prod --revision be74739 | grep image:
+# 2026-10-31 18:29:53 -03
+        image: ghcr.io/andhuangg/fiap-store-api:1.0
+
+$ argocd app manifests fiap-store-prod --revision 3474f4b | grep image:
+# 2026-10-31 18:29:53 -03
+        image: ghcr.io/andhuangg/fiap-store-api:1.1
+
+########## AppProject: destino fora da lista (kube-system) deve ser REJEITADO ##########
+$ kubectl apply -f app-kube-system-rejeitada.yaml
+# 2026-10-31 18:29:53 -03
+application.argoproj.io/teste-kube-system created
+
+$ kubectl describe application teste-kube-system -n argocd | sed -n '/^Status:/,$p' | grep -E 'Message|Type|Conditions|Sync|Health' | head -12
+# 2026-10-31 18:30:03 -03
+  Conditions:
+    Message:               application destination server 'https://kubernetes.default.svc' and namespace 'kube-system' do not match any of the allowed destinations in project 'fiap-store'
+    Type:                  InvalidSpecError
+  Health:
+  Sync:
+  Type    Reason           Age   From                           Message
+
+$ argocd app get teste-kube-system | sed -n '/CONDITION/,$p'
+# 2026-10-31 18:30:03 -03
+CONDITION         MESSAGE                                                                                                                                                           LAST TRANSITION
+InvalidSpecError  application destination server 'https://kubernetes.default.svc' and namespace 'kube-system' do not match any of the allowed destinations in project 'fiap-store'  2026-10-31 18:29:53 -0300 -03
+
+
+$ kubectl get pods -n kube-system -l app=store-api
+# 2026-10-31 18:30:04 -03
+No resources found in kube-system namespace.
+
+$ kubectl delete -f app-kube-system-rejeitada.yaml
+# 2026-10-31 18:30:04 -03
+application.argoproj.io "teste-kube-system" deleted
+
+$ kubectl get appproject fiap-store -n argocd -o yaml | sed -n '/^spec:/,/^status/p'
+# 2026-10-31 18:30:04 -03
+spec:
+  clusterResourceWhitelist:
+  - group: ""
+    kind: Namespace
+  description: FIAP Store (dev e prod)
+  destinations:
+  - namespace: store-dev
+    server: https://kubernetes.default.svc
+  - namespace: store-prod
+    server: https://kubernetes.default.svc
+  sourceRepos:
+  - https://github.com/andhuangg/fiap-store-config.git
+
+$ cd /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-config && tree -I .git
+# 2026-10-31 18:30:04 -03
+.
+├── apps
+│   ├── project.yaml
+│   ├── store-dev.yaml
+│   └── store-prod.yaml
+├── base
+│   ├── kustomization.yaml
+│   ├── store-api-deployment.yaml
+│   └── store-api-service.yaml
+├── overlays
+│   ├── dev
+│   │   └── kustomization.yaml
+│   └── prod
+│       ├── kustomization.yaml
+│       ├── patch-prod.yaml
+│       └── pdb.yaml
+└── README.md
+
+6 directories, 11 files
+

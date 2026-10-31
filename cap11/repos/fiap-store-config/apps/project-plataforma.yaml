@@ -1,0 +1,22 @@
+# AppProject da PLATAFORMA (Kyverno, Knative, namespaces e policies): instala CRDs, webhooks e
+# objetos de cluster, por isso e separado e mais amplo que o projeto da aplicacao.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: plataforma
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-3"}
+spec:
+  description: Componentes de plataforma do cluster
+  sourceRepos:
+    - https://github.com/andhuangg/fiap-store-config.git
+    - https://kyverno.github.io/kyverno/
+  destinations:
+    - {server: https://kubernetes.default.svc, namespace: kyverno}
+    - {server: https://kubernetes.default.svc, namespace: knative-serving}
+    - {server: https://kubernetes.default.svc, namespace: kourier-system}
+    - {server: https://kubernetes.default.svc, namespace: store-dev}
+    - {server: https://kubernetes.default.svc, namespace: store-prod}
+    - {server: https://kubernetes.default.svc, namespace: store-serverless}
+  clusterResourceWhitelist:
+    - {group: "*", kind: "*"}

@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fiap-store-prod
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "0"}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # apagar a Application apaga os recursos que ela criou
+spec:
+  project: fiap-store
+  source:
+    repoURL: https://github.com/andhuangg/fiap-store-config.git
+    targetRevision: main
+    path: overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: store-prod
+  syncPolicy:
+    automated:
+      prune: true        # remove do cluster o que saiu do Git
+      selfHeal: true     # desfaz alteracoes manuais (drift)

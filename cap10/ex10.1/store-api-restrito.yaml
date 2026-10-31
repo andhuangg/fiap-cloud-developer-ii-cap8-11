@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-api
+  namespace: store-seguro
+  labels: {app: store-api}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: store-api}}
+  template:
+    metadata:
+      labels: {app: store-api}
+    spec:
+      automountServiceAccountToken: false      # a API nao fala com o Kubernetes
+      securityContext:                         # ---- nivel Pod ----
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: store-api
+          image: store-api:1.0
+          imagePullPolicy: IfNotPresent
+          ports: [{containerPort: 8000}]
+          securityContext:                     # ---- nivel container ----
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            privileged: false
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet: {path: /ready, port: 8000}
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp                  # unico lugar gravavel (rootfs e read-only)
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

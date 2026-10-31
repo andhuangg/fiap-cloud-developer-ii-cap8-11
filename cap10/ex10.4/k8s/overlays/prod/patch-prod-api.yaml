@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-api
+spec:
+  template:
+    spec:
+      terminationGracePeriodSeconds: 45
+      priorityClassName: fiap-store-critico
+      containers:
+        - name: store-api
+          resources:
+            requests: {cpu: 100m, memory: 192Mi}
+            limits: {memory: 192Mi}          # limit = request de memoria: sem overcommit, OOM previsivel
+          lifecycle:
+            preStop:
+              sleep: {seconds: 10}     # acao nativa (k8s >= 1.30): distroless nao tem /bin/sleep

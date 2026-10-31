@@ -1,0 +1,60 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: store-prod
+resources:
+  - namespace.yaml
+  - ../../base
+  - limites.yaml
+  - pdb.yaml
+  - hpa.yaml
+  - servicemonitor.yaml
+  - networkpolicy.yaml
+  - priorityclass.yaml
+labels:
+  - pairs: {ambiente: prod}
+    includeSelectors: false
+# prod roda a versao ja escaneada e aprovada (1.1)
+images:
+  - name: store-api
+    newTag: "1.1"
+configMapGenerator:
+  - name: store-config
+    literals:
+      - APP_ENV=prod
+      - LOG_LEVEL=info
+replicas:
+  - {name: store-api, count: 3}
+  - {name: store-front, count: 3}
+  - {name: store-worker, count: 3}
+patches:
+  # recursos maiores + preStop + grace period (graceful shutdown, ex 10.3)
+  - path: patch-prod-api.yaml
+  - path: patch-prod-front.yaml
+  # espalha as replicas de cada app entre nos (em minikube de 1 no vira no-op, mas fica pronto para multi-no)
+  - target: {kind: Deployment, name: store-api}
+    patch: |-
+      - op: add
+        path: /spec/template/spec/topologySpreadConstraints
+        value:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector: {matchLabels: {app: store-api}}
+  - target: {kind: Deployment, name: store-front}
+    patch: |-
+      - op: add
+        path: /spec/template/spec/topologySpreadConstraints
+        value:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector: {matchLabels: {app: store-front}}
+  - target: {kind: Deployment, name: store-worker}
+    patch: |-
+      - op: add
+        path: /spec/template/spec/topologySpreadConstraints
+        value:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector: {matchLabels: {app: store-worker}}

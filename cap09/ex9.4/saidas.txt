@@ -1,0 +1,41 @@
+$ kubectl apply -f rbac-modelo.yaml
+# 2026-10-31 17:26:39 -03
+clusterrole.rbac.authorization.k8s.io/fiap-workload-admin created
+clusterrole.rbac.authorization.k8s.io/fiap-workload-reader created
+clusterrole.rbac.authorization.k8s.io/fiap-job-runner created
+clusterrole.rbac.authorization.k8s.io/fiap-pod-exec created
+clusterrole.rbac.authorization.k8s.io/fiap-sre-namespace-admin created
+clusterrole.rbac.authorization.k8s.io/fiap-sre-cluster-reader created
+clusterrole.rbac.authorization.k8s.io/fiap-auditor created
+rolebinding.rbac.authorization.k8s.io/fiap-dev-workload-admin created
+rolebinding.rbac.authorization.k8s.io/fiap-dev-reader created
+rolebinding.rbac.authorization.k8s.io/fiap-qa-reader created
+rolebinding.rbac.authorization.k8s.io/fiap-qa-reader created
+rolebinding.rbac.authorization.k8s.io/fiap-qa-job-runner created
+rolebinding.rbac.authorization.k8s.io/fiap-qa-pod-exec created
+rolebinding.rbac.authorization.k8s.io/fiap-sre-admin created
+rolebinding.rbac.authorization.k8s.io/fiap-sre-admin created
+clusterrolebinding.rbac.authorization.k8s.io/fiap-sre-cluster-reader created
+rolebinding.rbac.authorization.k8s.io/fiap-auditor created
+rolebinding.rbac.authorization.k8s.io/fiap-auditor created
+
+$ ./criar-usuario.sh ana.dev fiap:dev
+# 2026-10-31 17:26:39 -03
+subject=O=fiap:dev, CN=ana.dev
+
+$ ./criar-usuario.sh joao.qa2 fiap:qa
+# 2026-10-31 17:26:40 -03
+subject=O=fiap:qa, CN=joao.qa2
+
+$ ./criar-usuario.sh carla.sre fiap:sre
+# 2026-10-31 17:26:41 -03
+subject=O=fiap:sre, CN=carla.sre
+
+$ ./criar-usuario.sh bruno.auditor fiap:auditor
+# 2026-10-31 17:26:41 -03
+subject=O=fiap:auditor, CN=bruno.auditor
+
+$ grep -cE '"\*"|\[\*\]' rbac-modelo.yaml || true
+# 2026-10-31 17:26:48 -03
+0
+

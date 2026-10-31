@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+.env.*
+*.pem
+*.key
+tests/
+__pycache__/
+*.pyc
+Dockerfile*
+.dockerignore
+relatorio-*.txt

@@ -1,0 +1,49 @@
+# Policies do capitulo 10 (secao 10.8). Wave 0: depois dos namespaces (-1) e antes das apps (outra Application, wave 0 do root).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: proibir-tag-latest
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    policies.kyverno.io/title: Proibir tag latest
+spec:
+  background: true
+  rules:
+    - name: exigir-tag-explicita
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["store-dev", "store-prod"]
+      validate:
+        failureAction: Enforce
+        message: "Imagem com tag ':latest' e proibida. Use uma tag imutavel, ex.: store-api:1.1"
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: exigir-recursos
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  background: true
+  rules:
+    - name: requests-e-limits-obrigatorios
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["store-dev", "store-prod"]
+      validate:
+        failureAction: Enforce
+        message: "Todo container deve declarar requests de cpu/memoria e limit de memoria."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests: {cpu: "?*", memory: "?*"}
+                  limits: {memory: "?*"}

@@ -1,0 +1,6 @@
+0-quebrado           rollout=  2s total=10838 falhas= 165 por100=  0,00 maior_sequencia_OK=6418
+a-readiness          rollout=  5s total=10937 falhas=   0 por100=  0,00 maior_sequencia_OK=10937
+b-prestop            rollout=  4s total=12981 falhas=   0 por100=  0,00 maior_sequencia_OK=12981
+c-exec               rollout=  5s total=12575 falhas=   0 por100=  0,00 maior_sequencia_OK=12575
+d-maxunavailable0    rollout=  7s total=13565 falhas=   0 por100=  0,00 maior_sequencia_OK=13565
+e-final-lifespan     rollout=  8s total=14031 falhas=   0 por100=  0,00 maior_sequencia_OK=14031

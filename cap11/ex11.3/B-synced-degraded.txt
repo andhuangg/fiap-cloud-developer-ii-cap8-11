@@ -1,0 +1,93 @@
+$ git -C /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-config log -1 --format='%h %s' && git -C /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-config diff HEAD~1 HEAD
+# 2026-10-31 18:34:02 -03
+667c5af dev: store-api 9.9-inexistente (mudanca ruim de proposito)
+diff --git a/overlays/dev/kustomization.yaml b/overlays/dev/kustomization.yaml
+index d1f265a..7a2a0f6 100644
+--- a/overlays/dev/kustomization.yaml
++++ b/overlays/dev/kustomization.yaml
+@@ -9,4 +9,4 @@ replicas:
+ images:
+ - name: ghcr.io/andhuangg/fiap-store-api
+   newName: ghcr.io/andhuangg/fiap-store-api
+-  newTag: "1.1"
++  newTag: 9.9-inexistente
+
+18:35:57 Synced/Progressing
+18:36:03 Synced/Progressing
+18:36:10 Synced/Degraded
+$ argocd app get fiap-store-dev
+# 2026-10-31 18:36:10 -03
+Name:               argocd/fiap-store-dev
+Project:            fiap-store
+Server:             https://kubernetes.default.svc
+Namespace:          store-dev
+URL:                https://localhost:8080/applications/fiap-store-dev
+Source:
+- Repo:             https://github.com/andhuangg/fiap-store-config.git
+  Target:           main
+  Path:             overlays/dev
+SyncWindow:         Sync Allowed
+Sync Policy:        Automated (Prune)
+Sync Status:        Synced to main (667c5af)
+Health Status:      Degraded
+
+GROUP  KIND        NAMESPACE  NAME       STATUS     HEALTH    HOOK  MESSAGE
+       Namespace              store-dev  Succeeded  Synced          namespace/store-dev serverside-applied
+       Service     store-dev  store-api  Synced     Healthy         service/store-api unchanged
+apps   Deployment  store-dev  store-api  Synced     Degraded        deployment.apps/store-api configured
+
+$ kubectl get pods -n store-dev
+# 2026-10-31 18:36:10 -03
+NAME                         READY   STATUS         RESTARTS   AGE
+store-api-657bc6cd57-2jdj5   0/1     ErrImagePull   0          2m4s
+store-api-9c76d975b-4qj4k    1/1     Running        0          2m37s
+store-api-9c76d975b-mkmf8    1/1     Running        0          2m33s
+store-api-9c76d975b-tc45z    1/1     Running        0          8m3s
+store-api-9c76d975b-xwd9j    1/1     Running        0          2m35s
+
+$ kubectl describe pod store-api-657bc6cd57-2jdj5 -n store-dev | sed -n '/^Events:/,$p'
+# 2026-10-31 18:36:10 -03
+Events:
+  Type     Reason     Age                 From               Message
+  ----     ------     ----                ----               -------
+  Normal   Scheduled  2m4s                default-scheduler  Successfully assigned store-dev/store-api-657bc6cd57-2jdj5 to cp-bara
+  Normal   Pulling    25s (x4 over 2m3s)  kubelet            Pulling image "ghcr.io/andhuangg/fiap-store-api:9.9-inexistente"
+  Warning  Failed     24s (x4 over 2m2s)  kubelet            Failed to pull image "ghcr.io/andhuangg/fiap-store-api:9.9-inexistente": Error response from daemon: manifest unknown
+  Warning  Failed     24s (x4 over 2m2s)  kubelet            Error: ErrImagePull
+  Normal   BackOff    9s (x6 over 2m2s)   kubelet            Back-off pulling image "ghcr.io/andhuangg/fiap-store-api:9.9-inexistente"
+  Warning  Failed     9s (x6 over 2m2s)   kubelet            Error: ImagePullBackOff
+
+$ kubectl get deploy store-api -n store-dev -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.reason}: {.message}{"
+"}{end}'
+# 2026-10-31 18:36:10 -03
+Available=True MinimumReplicasAvailable: Deployment has minimum availability.
+Progressing=False ProgressDeadlineExceeded: ReplicaSet "store-api-657bc6cd57" has timed out progressing.
+
+$ kubectl logs -n argocd statefulset/argocd-application-controller --since=5m | grep fiap-store-dev | grep -E 'health status|Degraded' | tail -3 | cut -c1-250
+# 2026-10-31 18:36:10 -03
+time="2026-10-31T21:33:43Z" level=info msg="Updated health status: Progressing -> Healthy" application=fiap-store-dev dest-namespace=store-dev dest-server="https://kubernetes.default.svc" reason=ResourceUpdated type=Normal
+time="2026-10-31T21:34:06Z" level=info msg="Updated health status: Healthy -> Progressing" application=fiap-store-dev dest-namespace=store-dev dest-server="https://kubernetes.default.svc" reason=ResourceUpdated type=Normal
+time="2026-10-31T21:36:07Z" level=info msg="Updated health status: Progressing -> Degraded" application=fiap-store-dev dest-namespace=store-dev dest-server="https://kubernetes.default.svc" reason=ResourceUpdated type=Normal
+
+########## CORRECAO: git revert ##########
+$ git -C /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-config log --oneline -3
+# 2026-10-31 18:36:12 -03
+1054fe6 Revert "dev: store-api 9.9-inexistente (mudanca ruim de proposito)"
+667c5af dev: store-api 9.9-inexistente (mudanca ruim de proposito)
+3db3645 base: progressDeadlineSeconds 120
+
+$ argocd app get fiap-store-dev | sed -n '/Sync Status/,/Health/p'
+# 2026-10-31 18:36:20 -03
+Sync Status:        Synced to main (1054fe6)
+Health Status:      Healthy
+
+$ kubectl get pods -n store-dev; kubectl get deploy -n store-dev -o wide
+# 2026-10-31 18:36:20 -03
+NAME                        READY   STATUS    RESTARTS   AGE
+store-api-9c76d975b-4qj4k   1/1     Running   0          2m47s
+store-api-9c76d975b-mkmf8   1/1     Running   0          2m43s
+store-api-9c76d975b-tc45z   1/1     Running   0          8m13s
+store-api-9c76d975b-xwd9j   1/1     Running   0          2m45s
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                 SELECTOR
+store-api   4/4     4            4           29m   store-api    ghcr.io/andhuangg/fiap-store-api:1.1   app=store-api
+

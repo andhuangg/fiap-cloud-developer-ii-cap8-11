@@ -1,0 +1,120 @@
+# CI da store-api (app repo). Nao existe KUBECONFIG nem kubectl aqui:
+# o CI so produz uma imagem e propoe a mudanca no config repo via pull request.
+# Quem aplica no cluster e o Argo CD (modelo pull).
+name: CI store-api
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]          # tag v1.1 publica a release 1.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write         # push no GHCR com o GITHUB_TOKEN
+  id-token: write         # assinatura keyless (Cosign + OIDC do GitHub)
+
+env:
+  IMAGEM: ghcr.io/andhuangg/fiap-store-api
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.11"   # mesmo Python do distroless debian12
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  imagem:
+    needs: testes
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.valor }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Definir a tag (run_number na main, versao nas tags v*)
+        id: tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "valor=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "valor=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-qemu-action@v4.4.0   # emula arm64 no runner amd64
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - name: Build (local, ainda sem push)
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          load: true
+          tags: ${{ env.IMAGEM }}:${{ steps.tag.outputs.valor }}
+
+      - name: Scan Trivy (porta de qualidade ANTES do push)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGEM }}:${{ steps.tag.outputs.valor }}
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Login no GHCR
+        uses: docker/login-action@v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push
+        id: push
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64   # arm64: Macs Apple Silicon / Graviton
+          tags: ${{ env.IMAGEM }}:${{ steps.tag.outputs.valor }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+      - uses: sigstore/cosign-installer@v4.1.2
+      - name: Assinar a imagem (keyless)
+        run: cosign sign --yes "${IMAGEM}@${{ steps.push.outputs.digest }}"
+
+  promover-dev:
+    # so a main promove automaticamente para dev; releases (tags) vao para prod por PR manual
+    if: github.ref == 'refs/heads/main'
+    needs: imagem
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar o config repo
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: andhuangg/fiap-store-config
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          path: config
+
+      - uses: imranismail/setup-kustomize@v3.0.0
+
+      - name: Atualizar a tag em overlays/dev
+        run: |
+          cd config/overlays/dev
+          kustomize edit set image ${IMAGEM}=${IMAGEM}:${{ needs.imagem.outputs.tag }}
+          git -C .. diff
+
+      - name: Abrir PR de promocao
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          path: config
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          branch: bump/store-api-${{ needs.imagem.outputs.tag }}
+          commit-message: "chore(dev): store-api para ${{ needs.imagem.outputs.tag }}"
+          title: "Promover store-api ${{ needs.imagem.outputs.tag }} para dev"
+          body: |
+            PR aberto automaticamente pelo CI do app repo (run ${{ github.run_id }}).
+            Imagem `${{ env.IMAGEM }}:${{ needs.imagem.outputs.tag }}` testada, escaneada (Trivy, CRITICAL corrigivel = 0) e assinada (Cosign keyless).
+            O merge deste PR faz o Argo CD sincronizar o namespace store-dev.

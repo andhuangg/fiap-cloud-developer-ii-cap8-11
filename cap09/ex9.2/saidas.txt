@@ -1,0 +1,221 @@
+########## 1. chave privada e CSR ##########
+$ openssl genrsa -out joao-qa.key 2048
+# 2026-10-31 17:21:20 -03
+
+$ openssl req -new -key joao-qa.key -out joao-qa.csr -subj "/CN=joao.qa/O=fiap:qa"
+# 2026-10-31 17:21:20 -03
+
+$ openssl req -in joao-qa.csr -noout -subject
+# 2026-10-31 17:21:20 -03
+subject=CN=joao.qa, O=fiap:qa
+
+########## 2. CertificateSigningRequest, aprovacao e extracao ##########
+$ kubectl apply -f csr-joao.yaml
+# 2026-10-31 17:21:20 -03
+certificatesigningrequest.certificates.k8s.io/joao.qa created
+
+$ kubectl get csr joao.qa
+# 2026-10-31 17:21:20 -03
+NAME      AGE   SIGNERNAME                            REQUESTOR       REQUESTEDDURATION   CONDITION
+joao.qa   0s    kubernetes.io/kube-apiserver-client   minikube-user   7d                  Pending
+
+$ kubectl certificate approve joao.qa
+# 2026-10-31 17:21:20 -03
+certificatesigningrequest.certificates.k8s.io/joao.qa approved
+
+$ kubectl get csr joao.qa
+# 2026-10-31 17:21:23 -03
+NAME      AGE   SIGNERNAME                            REQUESTOR       REQUESTEDDURATION   CONDITION
+joao.qa   3s    kubernetes.io/kube-apiserver-client   minikube-user   7d                  Approved,Issued
+
+$ openssl x509 -in joao-qa.crt -noout -subject -issuer -dates
+# 2026-10-31 17:21:23 -03
+subject=O=fiap:qa, CN=joao.qa
+issuer=CN=minikubeCA
+notBefore=Oct 31 20:16:21 2026 GMT
+notAfter=Nov  7 20:16:21 2026 GMT
+
+########## 3. kubeconfig autocontido (--embed-certs=true) ##########
+$ kubectl config set-cluster cp-bara --server=https://127.0.0.1:52314 --certificate-authority=/Users/huang/.minikube/ca.crt --embed-certs=true --kubeconfig=kubeconfig-joao.yaml
+# 2026-10-31 17:21:23 -03
+Cluster "cp-bara" set.
+
+$ kubectl config set-credentials joao.qa --client-certificate=joao-qa.crt --client-key=joao-qa.key --embed-certs=true --kubeconfig=kubeconfig-joao.yaml
+# 2026-10-31 17:21:23 -03
+User "joao.qa" set.
+
+$ kubectl config set-context joao.qa@cp-bara --cluster=cp-bara --user=joao.qa --namespace=store-dev --kubeconfig=kubeconfig-joao.yaml
+# 2026-10-31 17:21:23 -03
+Context "joao.qa@cp-bara" created.
+
+$ kubectl config use-context joao.qa@cp-bara --kubeconfig=kubeconfig-joao.yaml
+# 2026-10-31 17:21:23 -03
+Switched to context "joao.qa@cp-bara".
+
+$ grep -E 'certificate-authority|client-certificate|client-key' kubeconfig-joao.yaml | sed -E 's/(: .{20}).*/\1.../'
+# 2026-10-31 17:21:23 -03
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJU...
+    client-certificate-data: LS0tLS1CRUdJTiBDRVJU...
+    client-key-data: LS0tLS1CRUdJTiBQUklW...
+
+########## (a) ANTES de qualquer binding: 403 (autenticado, sem autorizacao) ##########
+$ kubectl --kubeconfig=kubeconfig-joao.yaml auth whoami
+# 2026-10-31 17:21:23 -03
+ATTRIBUTE                                           VALUE
+Username                                            joao.qa
+Groups                                              [fiap:qa system:authenticated]
+Extra: authentication.kubernetes.io/credential-id   [X509SHA256=8b3f4282d66cace3d1ba5a6057bff209dd2b86f581245f7bc358584a160be3b0]
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml get pods -n store-dev
+# 2026-10-31 17:21:23 -03
+Error from server (Forbidden): pods is forbidden: User "joao.qa" cannot list resource "pods" in API group "" in the namespace "store-dev"
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml get pods -n store-dev -v=6 2>&1 | grep -E 'GET https|Forbidden' | sed -E 's/^I[0-9 :.]+[a-z_]+\.go:[0-9]+\] //' | head -3
+# 2026-10-31 17:21:23 -03
+"Response" verb="GET" url="https://127.0.0.1:52314/api/v1/namespaces/store-dev/pods?limit=500" status="403 Forbidden" milliseconds=3
+  "reason": "Forbidden",
+Error from server (Forbidden): pods is forbidden: User "joao.qa" cannot list resource "pods" in API group "" in the namespace "store-dev"
+
+--- comparacao: certificado NAO assinado pela CA do cluster -> 401 Unauthorized ---
+$ kubectl --server=https://127.0.0.1:52314 --certificate-authority=/Users/huang/.minikube/ca.crt --client-certificate=/private/tmp/claude-501/-Users-huang/2a30e003-12cd-4ff9-bcf8-2411c699a893/scratchpad/fake.crt --client-key=/private/tmp/claude-501/-Users-huang/2a30e003-12cd-4ff9-bcf8-2411c699a893/scratchpad/fake.key --kubeconfig=/dev/null get pods -n store-dev
+# 2026-10-31 17:21:23 -03
+E1031 17:21:23.996181   78642 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+E1031 17:21:24.011262   78642 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+E1031 17:21:24.018521   78642 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+error: You must be logged in to the server (Unauthorized)
+
+########## (b) RoleBinding do GRUPO fiap:qa -> ClusterRole view (so em store-dev) ##########
+$ kubectl apply -f binding-view.yaml
+# 2026-10-31 17:21:52 -03
+rolebinding.rbac.authorization.k8s.io/qa-view created
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml get pods -n store-dev
+# 2026-10-31 17:21:54 -03
+NAME                                 READY   STATUS      RESTARTS   AGE
+cliente                              1/1     Running     0          7m35s
+monitor                              1/1     Running     0          81s
+redis-74cd45cd74-rcrzm               1/1     Running     0          4m7s
+relatorio-quebrado-vgv96             0/1     Completed   0          8m35s
+sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          6m54s
+sincroniza-catalogo-29891300-6v7fm   1/1     Running     0          114s
+store-api-5f986f48b9-n7vsr           1/1     Running     0          5m44s
+store-api-5f986f48b9-v2cts           1/1     Running     0          5m47s
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml get pods -n store-prod
+# 2026-10-31 17:21:54 -03
+Error from server (Forbidden): pods is forbidden: User "joao.qa" cannot list resource "pods" in API group "" in the namespace "store-prod"
+
+$ kubectl get rolebinding qa-view -n store-dev -o jsonpath='{.subjects}'; echo
+# 2026-10-31 17:21:54 -03
+[{"apiGroup":"rbac.authorization.k8s.io","kind":"Group","name":"fiap:qa"}]
+
+$ kubectl auth can-i list pods -n store-dev --as=joao.qa
+# 2026-10-31 17:21:54 -03
+no
+
+$ kubectl auth can-i list pods -n store-dev --as=joao.qa --as-group=fiap:qa
+# 2026-10-31 17:21:54 -03
+yes
+
+# 1a linha: so o usuario simulado, sem o grupo -> no. 2a linha: com o grupo -> yes. A permissao vem do grupo (O= do certificado), nao do usuario.
+########## (c) pods/exec so em store-dev ##########
+$ kubectl --kubeconfig=kubeconfig-joao.yaml exec -n store-dev store-api-5f986f48b9-n7vsr -- id
+# 2026-10-31 17:21:54 -03
+Error from server (Forbidden): pods "store-api-5f986f48b9-n7vsr" is forbidden: User "joao.qa" cannot create resource "pods/exec" in API group "" in the namespace "store-dev"
+
+$ kubectl apply -f role-exec.yaml
+# 2026-10-31 17:21:55 -03
+role.rbac.authorization.k8s.io/qa-exec created
+rolebinding.rbac.authorization.k8s.io/qa-exec created
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml exec -n store-dev store-api-5f986f48b9-n7vsr -- id
+# 2026-10-31 17:21:57 -03
+uid=10001(appuser) gid=10001(appuser) groups=10001(appuser)
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml exec -n store-prod alvo -- id
+# 2026-10-31 17:21:57 -03
+Error from server (Forbidden): pods "alvo" is forbidden: User "joao.qa" cannot get resource "pods" in API group "" in the namespace "store-prod"
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml auth can-i create pods/exec -n store-dev
+# 2026-10-31 17:21:57 -03
+no
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml auth can-i create pods/exec -n store-prod
+# 2026-10-31 17:21:57 -03
+no
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml auth can-i delete pods -n store-dev
+# 2026-10-31 17:21:57 -03
+no
+
+########## NOTA sobre can-i com pods/exec ##########
+# Acima, 'auth can-i create pods/exec' devolveu 'no' mesmo com o exec funcionando (uid=10001).
+# Com a flag --subresource=exec o resultado e o correto e coerente com o exec real. Usar sempre --subresource.
+
+$ kubectl auth can-i create pods --subresource=exec -n store-dev --as=joao.qa --as-group=fiap:qa
+# 2026-10-31 17:22:42 -03
+yes
+
+$ kubectl auth can-i create pods --subresource=exec -n store-prod --as=joao.qa --as-group=fiap:qa
+# 2026-10-31 17:22:42 -03
+no
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml auth can-i create pods --subresource=exec -n store-dev
+# 2026-10-31 17:22:42 -03
+yes
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml auth can-i create pods --subresource=exec -n store-prod
+# 2026-10-31 17:22:42 -03
+no
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml exec -n store-dev store-api-5f986f48b9-n7vsr -- id
+# 2026-10-31 17:22:42 -03
+uid=10001(appuser) gid=10001(appuser) groups=10001(appuser)
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml exec -n store-prod alvo -- id
+# 2026-10-31 17:22:42 -03
+Error from server (Forbidden): pods "alvo" is forbidden: User "joao.qa" cannot get resource "pods" in API group "" in the namespace "store-prod"
+
+# o erro em store-prod e 'cannot get pods' porque o exec primeiro faz GET no Pod e o joao nao tem nenhuma permissao la
+########## kubeconfig isolado: copiado para diretorio vazio ##########
+$ cd /private/tmp/claude-501/-Users-huang/2a30e003-12cd-4ff9-bcf8-2411c699a893/scratchpad/teste92 && ls && KUBECONFIG=./kubeconfig-joao.yaml kubectl get pods -n store-dev | head -4
+# 2026-10-31 17:22:42 -03
+kubeconfig-joao.yaml
+NAME                                 READY   STATUS      RESTARTS   AGE
+cliente                              1/1     Running     0          8m23s
+monitor                              1/1     Running     0          2m9s
+redis-74cd45cd74-rcrzm               1/1     Running     0          4m55s
+
+########## certificado ##########
+$ openssl x509 -in joao-qa.crt -noout -subject -dates
+# 2026-10-31 17:22:42 -03
+subject=O=fiap:qa, CN=joao.qa
+notBefore=Oct 31 20:16:21 2026 GMT
+notAfter=Nov  7 20:16:21 2026 GMT
+
+########## (d) REVOGACAO: remove todos os bindings ##########
+$ kubectl delete rolebinding qa-view qa-exec -n store-dev
+# 2026-10-31 17:22:42 -03
+rolebinding.rbac.authorization.k8s.io "qa-view" deleted
+rolebinding.rbac.authorization.k8s.io "qa-exec" deleted
+
+$ kubectl delete role qa-exec -n store-dev
+# 2026-10-31 17:22:43 -03
+role.rbac.authorization.k8s.io "qa-exec" deleted
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml auth whoami
+# 2026-10-31 17:22:45 -03
+ATTRIBUTE                                           VALUE
+Username                                            joao.qa
+Groups                                              [fiap:qa system:authenticated]
+Extra: authentication.kubernetes.io/credential-id   [X509SHA256=8b3f4282d66cace3d1ba5a6057bff209dd2b86f581245f7bc358584a160be3b0]
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml get pods -n store-dev
+# 2026-10-31 17:22:45 -03
+Error from server (Forbidden): pods is forbidden: User "joao.qa" cannot list resource "pods" in API group "" in the namespace "store-dev"
+
+$ kubectl --kubeconfig=kubeconfig-joao.yaml exec -n store-dev store-api-5f986f48b9-n7vsr -- id
+# 2026-10-31 17:22:45 -03
+Error from server (Forbidden): pods "store-api-5f986f48b9-n7vsr" is forbidden: User "joao.qa" cannot get resource "pods" in API group "" in the namespace "store-dev"
+
+# o certificado continua valido e autentica (whoami responde, erro e 403 Forbidden, nunca 401). Certificados X.509 nao podem ser revogados no Kubernetes: revoga-se a autorizacao (RBAC) ou rotaciona-se a CA.

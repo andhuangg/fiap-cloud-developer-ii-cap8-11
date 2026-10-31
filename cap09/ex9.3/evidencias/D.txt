@@ -1,0 +1,98 @@
+$ kubectl apply -f antes/D.yaml
+# 2026-10-31 17:24:26 -03
+rolebinding.rbac.authorization.k8s.io/user-d-edit created
+
+$ kubectl get pods -n store-dev --as=user.d | head -3
+# 2026-10-31 17:24:28 -03
+NAME                                 READY   STATUS              RESTARTS   AGE
+app-teste-84f7548856-5nn22           1/1     Running             0          64s
+app-teste-84f7548856-tdc25           0/1     ContainerCreating   0          2s
+
+$ kubectl get pods -n store-prod --as=user.d
+# 2026-10-31 17:24:28 -03
+Error from server (Forbidden): pods is forbidden: User "user.d" cannot list resource "pods" in API group "" in the namespace "store-prod"
+
+$ kubectl auth can-i list pods -n store-prod --as=user.d
+# 2026-10-31 17:24:28 -03
+no
+
+$ kubectl get rolebinding -A | grep user-d
+# 2026-10-31 17:24:28 -03
+store-dev     user-d-edit                                         ClusterRole/edit                                      1s
+
+### CORRECAO CERTA: segundo RoleBinding em store-prod (mesmo ClusterRole edit)
+$ diff -u antes/D.yaml depois/D.yaml
+# 2026-10-31 17:24:28 -03
+--- antes/D.yaml	2026-10-31 17:23:24
++++ depois/D.yaml	2026-10-31 17:23:24
+@@ -11,3 +11,18 @@
+   apiGroup: rbac.authorization.k8s.io
+   kind: ClusterRole
+   name: edit
++---
++# correcao: UM SEGUNDO RoleBinding, agora em store-prod, reaproveitando o mesmo ClusterRole edit
++apiVersion: rbac.authorization.k8s.io/v1
++kind: RoleBinding
++metadata:
++  name: user-d-edit
++  namespace: store-prod
++subjects:
++  - kind: User
++    name: user.d
++    apiGroup: rbac.authorization.k8s.io
++roleRef:
++  apiGroup: rbac.authorization.k8s.io
++  kind: ClusterRole
++  name: edit
+
+$ kubectl apply -f depois/D.yaml
+# 2026-10-31 17:24:28 -03
+rolebinding.rbac.authorization.k8s.io/user-d-edit unchanged
+rolebinding.rbac.authorization.k8s.io/user-d-edit created
+
+$ kubectl get pods -n store-prod --as=user.d
+# 2026-10-31 17:24:29 -03
+No resources found in store-prod namespace.
+
+$ kubectl auth can-i create deployments.apps -n store-prod --as=user.d
+# 2026-10-31 17:24:29 -03
+yes
+
+$ kubectl auth can-i list pods -n kube-system --as=user.d
+# 2026-10-31 17:24:29 -03
+no
+
+$ kubectl get rolebinding -A | grep user-d
+# 2026-10-31 17:24:29 -03
+store-dev     user-d-edit                                         ClusterRole/edit                                      2s
+store-prod    user-d-edit                                         ClusterRole/edit                                      1s
+
+### PROVA de que ClusterRoleBinding seria ERRADO (binding temporario, removido em seguida)
+$ kubectl create clusterrolebinding user-d-crb-temp --clusterrole=edit --user=user.d
+# 2026-10-31 17:24:29 -03
+clusterrolebinding.rbac.authorization.k8s.io/user-d-crb-temp created
+
+$ kubectl auth can-i list pods -n kube-system --as=user.d
+# 2026-10-31 17:24:30 -03
+yes
+
+$ kubectl auth can-i create deployments.apps -n kube-system --as=user.d
+# 2026-10-31 17:24:30 -03
+yes
+
+$ kubectl auth can-i delete secrets -n kube-system --as=user.d
+# 2026-10-31 17:24:30 -03
+yes
+
+$ kubectl auth can-i get secrets -n kube-system --as=user.d
+# 2026-10-31 17:24:30 -03
+yes
+
+$ kubectl delete clusterrolebinding user-d-crb-temp
+# 2026-10-31 17:24:31 -03
+clusterrolebinding.rbac.authorization.k8s.io "user-d-crb-temp" deleted
+
+$ kubectl auth can-i list pods -n kube-system --as=user.d
+# 2026-10-31 17:24:31 -03
+no
+

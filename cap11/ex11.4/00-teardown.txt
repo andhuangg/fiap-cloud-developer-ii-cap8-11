@@ -1,0 +1,25 @@
+$ kubectl delete application fiap-store-dev fiap-store-prod -n argocd --wait=true --timeout=180s
+# 2026-10-31 18:43:11 -03
+application.argoproj.io "fiap-store-dev" deleted
+application.argoproj.io "fiap-store-prod" deleted
+
+$ kubectl delete appproject fiap-store -n argocd
+# 2026-10-31 18:43:46 -03
+appproject.argoproj.io "fiap-store" deleted
+
+$ kubectl delete ns store-dev store-prod --wait=true --timeout=180s
+# 2026-10-31 18:43:46 -03
+namespace "store-dev" deleted
+namespace "store-prod" deleted
+
+$ kubectl get applications,appprojects -n argocd; kubectl get ns
+# 2026-10-31 18:43:51 -03
+NAME                             AGE
+appproject.argoproj.io/default   48m
+NAME              STATUS   AGE
+argocd            Active   48m
+default           Active   94m
+kube-node-lease   Active   94m
+kube-public       Active   94m
+kube-system       Active   94m
+

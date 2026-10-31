@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: processa-pedidos
+  namespace: store-dev
+spec:
+  completions: 10            # 10 execucoes bem-sucedidas no total
+  parallelism: 3             # no maximo 3 Pods ao mesmo tempo
+  backoffLimit: 4            # ate 4 retentativas antes de marcar Failed
+  ttlSecondsAfterFinished: 600   # limpa o Job 10 min apos terminar
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: worker
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "inicio $(hostname)"
+              T=$(( (RANDOM % 6) + 3 ))
+              echo "processando por ${T}s"
+              sleep $T
+              echo "LOTE OK $(hostname)"

@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: plataforma-knative
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-2"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: plataforma
+  source:
+    repoURL: https://github.com/andhuangg/fiap-store-config.git
+    targetRevision: main
+    path: infra/knative
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: knative-serving
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [ServerSideApply=true, RespectIgnoreDifferences=true]
+  ignoreDifferences:
+    # os webhooks do Knative injetam caBundle e regras em runtime; sem isso a App fica eternamente OutOfSync
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jqPathExpressions: [".webhooks[]?.clientConfig.caBundle", ".webhooks[]?.rules"]
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions: [".webhooks[]?.clientConfig.caBundle", ".webhooks[]?.rules"]
+    - group: ""
+      kind: Secret
+      jsonPointers: [/data]

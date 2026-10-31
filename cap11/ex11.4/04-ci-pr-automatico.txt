@@ -1,0 +1,121 @@
+$ gh run view 41245855115 -R andhuangg/fiap-store-api | sed -n '1,12p'
+# 2026-10-31 19:29:09 -03
+
+✓ main CI store-api · 41245855115
+Triggered via push about 33 minutes ago
+
+JOBS
+✓ testes in 10s (ID 124669012277)
+✓ imagem in 4m21s (ID 124669057859)
+✓ promover-dev in 10s (ID 124670000277)
+
+ANNOTATIONS
+- "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+testes: .github#1
+
+$ gh run view 41245855115 -R andhuangg/fiap-store-api --log | grep -E 'promover-dev.*(Atualizar a tag|kustomize edit|newTag|Created pull request|pull-request-number|Pull request)' | head -8 | cut -c1-220
+# 2026-10-31 19:29:12 -03
+promover-dev	Atualizar a tag em overlays/dev	﻿2026-10-31T22:00:38.7047233Z ##[group]Run cd config/overlays/dev
+promover-dev	Atualizar a tag em overlays/dev	2026-10-31T22:00:38.7047645Z [36;1mcd config/overlays/dev[0m
+promover-dev	Atualizar a tag em overlays/dev	2026-10-31T22:00:38.7047993Z [36;1mkustomize edit set image ${IMAGEM}=${IMAGEM}:6[0m
+promover-dev	Atualizar a tag em overlays/dev	2026-10-31T22:00:38.7048332Z [36;1mgit -C .. diff[0m
+promover-dev	Atualizar a tag em overlays/dev	2026-10-31T22:00:38.7085037Z shell: /usr/bin/bash -e {0}
+promover-dev	Atualizar a tag em overlays/dev	2026-10-31T22:00:38.7085349Z env:
+promover-dev	Atualizar a tag em overlays/dev	2026-10-31T22:00:38.7085578Z   IMAGEM: ghcr.io/andhuangg/fiap-store-api
+promover-dev	Atualizar a tag em overlays/dev	2026-10-31T22:00:38.7085873Z ##[endgroup]
+
+$ gh pr view 2 -R andhuangg/fiap-store-config --json number,title,headRefName,url,additions,deletions,changedFiles,body,createdAt --jq '"PR #\(.number) \(.title)
+branch: \(.headRefName)
+\(.url)
+criado em: \(.createdAt)
+additions=\(.additions) deletions=\(.deletions) changedFiles=\(.changedFiles)
+---
+\(.body)"'
+# 2026-10-31 19:29:14 -03
+PR #2 Promover store-api 6 para dev
+branch: bump/store-api-6
+https://github.com/andhuangg/fiap-store-config/pull/2
+criado em: 2026-10-31T22:00:40Z
+additions=1 deletions=1 changedFiles=1
+---
+PR aberto automaticamente pelo CI do app repo (run 41245855115).
+Imagem `ghcr.io/andhuangg/fiap-store-api:6` testada, escaneada (Trivy, CRITICAL corrigivel = 0) e assinada (Cosign keyless).
+O merge deste PR faz o Argo CD sincronizar o namespace store-dev.
+
+$ gh pr diff 2 -R andhuangg/fiap-store-config
+# 2026-10-31 19:29:15 -03
+diff --git a/overlays/dev/kustomization.yaml b/overlays/dev/kustomization.yaml
+index 2ffa7e2..483c209 100644
+--- a/overlays/dev/kustomization.yaml
++++ b/overlays/dev/kustomization.yaml
+@@ -14,4 +14,4 @@ replicas:
+ images:
+ - name: ghcr.io/andhuangg/fiap-store-api
+   newName: ghcr.io/andhuangg/fiap-store-api
+-  newTag: "1.1"
++  newTag: "6"
+
+########## O workflow NAO tem credencial de cluster ##########
+$ grep -niE 'kubeconfig|kubectl|kube-|cluster|argocd' /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-api/.github/workflows/ci.yaml || echo 'nenhuma ocorrencia de kubeconfig/kubectl/credencial de cluster'
+# 2026-10-31 19:29:15 -03
+1:# CI da store-api (app repo). Nao existe KUBECONFIG nem kubectl aqui:
+3:# Quem aplica no cluster e o Argo CD (modelo pull).
+
+$ gh secret list -R andhuangg/fiap-store-api
+# 2026-10-31 19:29:15 -03
+CONFIG_REPO_TOKEN	2026-10-31T20:59:06Z
+
+########## MERGE do PR e reconciliacao do store-dev (nenhum comando no cluster) ##########
+$ kubectl get deploy store-api -n store-dev -o jsonpath='{.spec.template.spec.containers[0].image}'; echo
+# 2026-10-31 19:29:16 -03
+ghcr.io/andhuangg/fiap-store-api:1.1
+
+$ gh pr merge 2 -R andhuangg/fiap-store-config --merge --delete-branch --subject 'Promover store-api 6 para dev (#2)'
+# 2026-10-31 19:29:16 -03
+
+$ gh api repos/andhuangg/fiap-store-config/commits/main --jq '.sha[0:7] + " " + .commit.message + " | " + .commit.committer.date'
+# 2026-10-31 19:29:20 -03
+c6d9100 Promover store-api 6 para dev (#2)
+
+Promover store-api 6 para dev | 2026-10-31T22:29:18Z
+
+19:31:58 35b2d9e Synced/Healthy image=ghcr.io/andhuangg/fiap-store-api:1.1 ready=2/2
+19:32:11 c6d9100 OutOfSync/Healthy image=ghcr.io/andhuangg/fiap-store-api:1.1 ready=2/2
+19:32:22 c6d9100 Synced/Progressing image=ghcr.io/andhuangg/fiap-store-api:6 ready=1/2
+19:32:33 c6d9100 Synced/Healthy image=ghcr.io/andhuangg/fiap-store-api:6 ready=2/2
+$ argocd app get fiap-store-dev | sed -n '/Sync Status/,/Health/p'
+# 2026-10-31 19:32:33 -03
+Sync Status:        Synced to main (c6d9100)
+Health Status:      Healthy
+
+$ kubectl get deploy -n store-dev -o wide; kubectl get deploy -n store-prod -o wide
+# 2026-10-31 19:32:34 -03
+NAME              READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS     IMAGES                                         SELECTOR
+store-api         2/2     2            2           5m22s   store-api      ghcr.io/andhuangg/fiap-store-api:6             app=store-api
+store-front       1/1     1            1           5m22s   store-front    nginxinc/nginx-unprivileged:1.30-alpine-slim   app=store-front
+store-relatorio   1/1     1            1           5m22s   relatorio      busybox:1.36                                   app=store-relatorio
+store-worker      1/1     1            1           5m22s   store-worker   busybox:1.36                                   app=store-worker
+NAME              READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS     IMAGES                                         SELECTOR
+store-api         4/4     4            4           5m22s   store-api      ghcr.io/andhuangg/fiap-store-api:1.1           app=store-api
+store-front       2/2     2            2           5m22s   store-front    nginxinc/nginx-unprivileged:1.30-alpine-slim   app=store-front
+store-relatorio   1/1     1            1           5m22s   relatorio      busybox:1.36                                   app=store-relatorio
+store-worker      2/2     2            2           5m22s   store-worker   busybox:1.36                                   app=store-worker
+
+$ kubectl exec -n store-dev deploy/store-api -- /opt/venv/bin/python3 -c 'import urllib.request;print(urllib.request.urlopen("http://localhost:8000/categorias").read().decode())'
+# 2026-10-31 19:32:34 -03
+[{"id":1,"nome":"Perifericos"},{"id":2,"nome":"Monitores"}]
+
+$ kubectl exec -n store-prod deploy/store-api -- /opt/venv/bin/python3 -c 'import urllib.request,urllib.error
+try: urllib.request.urlopen("http://localhost:8000/categorias")
+except urllib.error.HTTPError as e: print("prod (1.1): /categorias ->", e.code)'
+# 2026-10-31 19:33:00 -03
+prod (1.1): /categorias -> 404
+
+$ cosign verify ghcr.io/andhuangg/fiap-store-api:6 --certificate-identity-regexp 'https://github.com/andhuangg/fiap-store-api/.*' --certificate-oidc-issuer https://token.actions.githubusercontent.com 2>&1 | grep -vE '^\[|^$' | head -6 | cut -c1-220
+# 2026-10-31 19:33:01 -03
+Verification for ghcr.io/andhuangg/fiap-store-api:6 --
+The following checks were performed on each of these signatures:
+  - The cosign claims were validated
+  - Existence of the claims in the transparency log was verified offline
+  - The code-signing certificate was verified using trusted certificate authority certificates
+

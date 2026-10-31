@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: relatorio-quebrado
+  namespace: store-dev
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: relatorio
+          image: busybox:1.36
+          # correcao: o arquivo de entrada passa a existir (gerado/montado antes da leitura)
+          command: ["sh", "-c", "mkdir -p /dados && echo 'produto,qtd' > /dados/vendas.csv && echo gerando relatorio && cat /dados/vendas.csv"]

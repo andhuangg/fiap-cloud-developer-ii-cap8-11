@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cliente
+  namespace: store-dev
+spec:
+  containers:
+    - name: c
+      image: curlimages/curl:8.11.1
+      command: ["sleep", "infinity"]

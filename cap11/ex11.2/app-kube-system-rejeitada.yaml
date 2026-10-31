@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: teste-kube-system
+  namespace: argocd
+spec:
+  project: fiap-store
+  source:
+    repoURL: https://github.com/andhuangg/fiap-store-config.git
+    targetRevision: main
+    path: overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system        # NAO permitido no AppProject fiap-store
+  syncPolicy:
+    automated: {}

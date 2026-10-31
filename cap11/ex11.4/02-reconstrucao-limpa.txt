@@ -1,0 +1,64 @@
+########## TEARDOWN completo (apagar a raiz apaga, em cascata, todas as Applications e seus recursos) ##########
+$ kubectl delete application fiap-store-root -n argocd --wait=true --timeout=600s
+# 2026-10-31 19:19:16 -03
+application.argoproj.io "fiap-store-root" deleted
+
+$ kubectl get applications,appprojects -n argocd; kubectl get ns; kubectl get crd | grep -cE 'kyverno|knative' || true
+# 2026-10-31 19:24:27 -03
+NAME                             AGE
+appproject.argoproj.io/default   88m
+NAME              STATUS   AGE
+argocd            Active   89m
+default           Active   135m
+kube-node-lease   Active   135m
+kube-public       Active   135m
+kube-system       Active   135m
+32
+
+########## O UNICO kubectl apply ##########
+$ kubectl apply -f /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-config/root/fiap-store-root.yaml
+# 2026-10-31 19:24:29 -03
+Warning: metadata.finalizers: "resources-finalizer.argocd.argoproj.io": prefer a domain-qualified finalizer name including a path (/) to avoid accidental conflicts with other finalizer writers
+application.argoproj.io/fiap-store-root created
+
++0s fiap-store-root[w-]=-/-
++10s fiap-store-root[w-]=OutOfSync/Progressing  plataforma-knative[w-2]=OutOfSync/Missing  plataforma-kyverno[w-2]=/-
++22s fiap-store-root[w-]=OutOfSync/Progressing  plataforma-knative[w-2]=Synced/Progressing  plataforma-kyverno[w-2]=OutOfSync/Missing
++33s fiap-store-root[w-]=OutOfSync/Progressing  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=OutOfSync/Missing
++46s fiap-store-root[w-]=OutOfSync/Healthy  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=OutOfSync/Missing
++60s fiap-store-root[w-]=OutOfSync/Healthy  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=OutOfSync/Missing
++71s fiap-store-root[w-]=OutOfSync/Healthy  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=OutOfSync/Missing
++84s fiap-store-root[w-]=OutOfSync/Healthy  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=OutOfSync/Missing
++101s fiap-store-root[w-]=OutOfSync/Healthy  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=OutOfSync/Missing
++113s fiap-store-root[w-]=OutOfSync/Progressing  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=Synced/Progressing
++124s fiap-store-root[w-]=OutOfSync/Progressing  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=Synced/Progressing
++136s fiap-store-root[w-]=OutOfSync/Progressing  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=Synced/Progressing
++150s fiap-store-root[w-]=OutOfSync/Healthy  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=Synced/Healthy  fiap-store-infra[w-1]=OutOfSync/Healthy  fiap-store-dev[w0]=OutOfSync/Missing  fiap-store-prod[w0]=OutOfSync/Missing
++164s fiap-store-root[w-]=OutOfSync/Healthy  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=Synced/Healthy  fiap-store-infra[w-1]=Synced/Healthy  fiap-store-dev[w0]=OutOfSync/Missing  fiap-store-prod[w0]=OutOfSync/Missing
++180s fiap-store-root[w-]=OutOfSync/Progressing  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=Synced/Healthy  fiap-store-infra[w-1]=Synced/Healthy  fiap-store-dev[w0]=Synced/Progressing  fiap-store-prod[w0]=Synced/Progressing
++194s fiap-store-root[w-]=OutOfSync/Progressing  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=Synced/Healthy  fiap-store-infra[w-1]=Synced/Healthy  fiap-store-dev[w0]=Synced/Progressing  fiap-store-prod[w0]=Synced/Progressing
++207s fiap-store-root[w-]=Synced/Progressing  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=Synced/Healthy  fiap-store-infra[w-1]=Synced/Healthy  fiap-store-dev[w0]=Synced/Healthy  fiap-store-prod[w0]=Synced/Healthy  fiap-store-serverless[w1]=Synced/Progressing
++220s fiap-store-root[w-]=Synced/Healthy  plataforma-knative[w-2]=Synced/Healthy  plataforma-kyverno[w-2]=Synced/Healthy  fiap-store-infra[w-1]=Synced/Healthy  fiap-store-dev[w0]=Synced/Healthy  fiap-store-prod[w0]=Synced/Healthy  fiap-store-serverless[w1]=Synced/Healthy
+
+$ argocd app list
+# 2026-10-31 19:28:10 -03
+NAME                          CLUSTER                         NAMESPACE         PROJECT     STATUS  HEALTH   SYNCPOLICY  CONDITIONS  REPO                                                PATH                 TARGET
+argocd/fiap-store-dev         https://kubernetes.default.svc  store-dev         fiap-store  Synced  Healthy  Auto-Prune  <none>      https://github.com/andhuangg/fiap-store-config.git  overlays/dev         main
+argocd/fiap-store-infra       https://kubernetes.default.svc  store-dev         plataforma  Synced  Healthy  Auto-Prune  <none>      https://github.com/andhuangg/fiap-store-config.git  infra/base           main
+argocd/fiap-store-prod        https://kubernetes.default.svc  store-prod        fiap-store  Synced  Healthy  Auto-Prune  <none>      https://github.com/andhuangg/fiap-store-config.git  overlays/prod        main
+argocd/fiap-store-root        https://kubernetes.default.svc  argocd            default     Synced  Healthy  Auto-Prune  <none>      https://github.com/andhuangg/fiap-store-config.git  apps                 main
+argocd/fiap-store-serverless  https://kubernetes.default.svc  store-serverless  fiap-store  Synced  Healthy  Auto-Prune  <none>      https://github.com/andhuangg/fiap-store-config.git  overlays/serverless  main
+argocd/plataforma-knative     https://kubernetes.default.svc  knative-serving   plataforma  Synced  Healthy  Auto-Prune  <none>      https://github.com/andhuangg/fiap-store-config.git  infra/knative        main
+argocd/plataforma-kyverno     https://kubernetes.default.svc  kyverno           plataforma  Synced  Healthy  Auto-Prune  <none>      https://kyverno.github.io/kyverno/                                       3.9.2
+
+$ kubectl get applications -n argocd --sort-by=.metadata.creationTimestamp -o 'custom-columns=APPLICATION:.metadata.name,WAVE:.metadata.annotations.argocd\.argoproj\.io/sync-wave,CRIADA_UTC:.metadata.creationTimestamp,SYNC:.status.sync.status,HEALTH:.status.health.status'
+# 2026-10-31 19:28:11 -03
+APPLICATION             WAVE     CRIADA_UTC             SYNC     HEALTH
+fiap-store-root         <none>   2026-10-31T22:24:29Z   Synced   Healthy
+plataforma-knative      -2       2026-10-31T22:24:33Z   Synced   Healthy
+plataforma-kyverno      -2       2026-10-31T22:24:33Z   Synced   Healthy
+fiap-store-infra        -1       2026-10-31T22:26:50Z   Synced   Healthy
+fiap-store-dev          0        2026-10-31T22:26:53Z   Synced   Healthy
+fiap-store-prod         0        2026-10-31T22:26:53Z   Synced   Healthy
+fiap-store-serverless   1        2026-10-31T22:27:46Z   Synced   Healthy
+

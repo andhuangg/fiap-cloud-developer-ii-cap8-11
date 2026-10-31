@@ -1,0 +1,25 @@
+# defaults e teto por container (quem esquecer resources herda o default)
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: limites-padrao
+spec:
+  limits:
+    - type: Container
+      default: {memory: 256Mi}
+      defaultRequest: {cpu: 50m, memory: 64Mi}
+      max: {cpu: "1", memory: 512Mi}
+---
+# teto do namespace inteiro (protege o cluster de um HPA descontrolado)
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: quota-store-prod
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    limits.memory: 4Gi
+    pods: "30"
+    services: "10"
+    persistentvolumeclaims: "5"

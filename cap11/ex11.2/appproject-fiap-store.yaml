@@ -1,0 +1,18 @@
+# AppProject: limita DE ONDE (repo) e PARA ONDE (namespaces) as Applications da FIAP Store podem sincronizar
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: fiap-store
+  namespace: argocd
+spec:
+  description: FIAP Store (dev e prod)
+  sourceRepos:
+    - https://github.com/andhuangg/fiap-store-config.git     # APENAS este repositorio
+  destinations:                                             # APENAS estes namespaces
+    - server: https://kubernetes.default.svc
+      namespace: store-dev
+    - server: https://kubernetes.default.svc
+      namespace: store-prod
+  clusterResourceWhitelist:                                 # de escopo de cluster, so Namespace
+    - group: ""
+      kind: Namespace

@@ -1,0 +1,5 @@
+Rodada 1 (descartada para a tabela final): a carga parava 10 s apos o "kubectl rollout status",
+que retorna quando os Pods NOVOS ficam prontos, enquanto os Pods ANTIGOS ainda estao em
+Terminating (preStop de 10 s, grace de ate 45 s). A janela nao cobria o desligamento completo.
+Alem disso a coluna por100 saiu 0,00 por erro de locale (printf pt_BR x saida do bc).
+A rodada 2 corrige as duas coisas: carga ate nao existir nenhum Pod em Terminating, e LC_ALL=C.

@@ -1,0 +1,32 @@
+# etapa c: + ENTRYPOINT em forma exec
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-api
+  namespace: store-rollout
+spec:
+  replicas: 3
+  selector: {matchLabels: {app: store-api}}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels: {app: store-api}
+    spec:
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: store-api
+          image: store-api:exec-a
+          imagePullPolicy: IfNotPresent
+          ports: [{containerPort: 8000}]
+          readinessProbe:
+            httpGet: {path: /ready, port: 8000}
+            periodSeconds: 2
+            failureThreshold: 1
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]

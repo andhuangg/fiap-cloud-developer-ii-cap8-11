@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-worker
+  labels: {app: store-worker}
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 120
+  selector:
+    matchLabels: {app: store-worker}
+  template:
+    metadata:
+      labels: {app: store-worker}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: store-worker
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              trap 'echo "SIGTERM: finalizando item atual"; exit 0' TERM
+              while true; do echo "$(date +%T) [$APP_ENV] processando fila de pedidos"; sleep 10 & wait $!; done
+          env:
+            - {name: APP_ENV, value: dev}
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {memory: 32Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}

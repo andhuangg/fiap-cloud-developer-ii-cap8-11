@@ -1,0 +1,173 @@
+$ kubectl get all -n store-dev
+# 2026-10-31 19:28:39 -03
+NAME                                   READY   STATUS    RESTARTS   AGE
+pod/store-api-9c76d975b-b6gfv          1/1     Running   0          86s
+pod/store-api-9c76d975b-nrlz8          1/1     Running   0          86s
+pod/store-front-7df9955894-js477       1/1     Running   0          86s
+pod/store-relatorio-6c75bf98db-kbqpw   1/1     Running   0          86s
+pod/store-worker-79bf96d7d7-gjbzh      1/1     Running   0          86s
+
+NAME                  TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+service/store-api     ClusterIP   10.97.69.130     <none>        80/TCP    89s
+service/store-front   ClusterIP   10.108.208.224   <none>        80/TCP    89s
+
+NAME                              READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/store-api         2/2     2            2           88s
+deployment.apps/store-front       1/1     1            1           88s
+deployment.apps/store-relatorio   1/1     1            1           88s
+deployment.apps/store-worker      1/1     1            1           88s
+
+NAME                                         DESIRED   CURRENT   READY   AGE
+replicaset.apps/store-api-9c76d975b          2         2         2       88s
+replicaset.apps/store-front-7df9955894       1         1         1       88s
+replicaset.apps/store-relatorio-6c75bf98db   1         1         1       88s
+replicaset.apps/store-worker-79bf96d7d7      1         1         1       88s
+
+$ kubectl get all,pdb -n store-prod
+# 2026-10-31 19:28:40 -03
+NAME                                   READY   STATUS    RESTARTS   AGE
+pod/store-api-6b6cdd4488-8dwlj         1/1     Running   0          87s
+pod/store-api-6b6cdd4488-cwmgq         1/1     Running   0          86s
+pod/store-api-6b6cdd4488-hl2fr         1/1     Running   0          87s
+pod/store-api-6b6cdd4488-kvfsd         1/1     Running   0          87s
+pod/store-front-7df9955894-b4tw5       1/1     Running   0          86s
+pod/store-front-7df9955894-dmdj7       1/1     Running   0          85s
+pod/store-relatorio-6c75bf98db-qf58p   1/1     Running   0          86s
+pod/store-worker-846466fd75-hzfsj      1/1     Running   0          85s
+pod/store-worker-846466fd75-smwx8      1/1     Running   0          86s
+
+NAME                  TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+service/store-api     ClusterIP   10.104.120.125   <none>        80/TCP    90s
+service/store-front   ClusterIP   10.103.100.88    <none>        80/TCP    90s
+
+NAME                              READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/store-api         4/4     4            4           88s
+deployment.apps/store-front       2/2     2            2           88s
+deployment.apps/store-relatorio   1/1     1            1           88s
+deployment.apps/store-worker      2/2     2            2           88s
+
+NAME                                         DESIRED   CURRENT   READY   AGE
+replicaset.apps/store-api-6b6cdd4488         4         4         4       88s
+replicaset.apps/store-front-7df9955894       2         2         2       87s
+replicaset.apps/store-relatorio-6c75bf98db   1         1         1       87s
+replicaset.apps/store-worker-846466fd75      2         2         2       87s
+
+NAME                                   MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/store-api   2               N/A               2                     90s
+
+$ kubectl get deploy -n store-dev -o wide; kubectl get deploy -n store-prod -o wide
+# 2026-10-31 19:28:40 -03
+NAME              READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS     IMAGES                                         SELECTOR
+store-api         2/2     2            2           88s   store-api      ghcr.io/andhuangg/fiap-store-api:1.1           app=store-api
+store-front       1/1     1            1           88s   store-front    nginxinc/nginx-unprivileged:1.30-alpine-slim   app=store-front
+store-relatorio   1/1     1            1           88s   relatorio      busybox:1.36                                   app=store-relatorio
+store-worker      1/1     1            1           88s   store-worker   busybox:1.36                                   app=store-worker
+NAME              READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS     IMAGES                                         SELECTOR
+store-api         4/4     4            4           88s   store-api      ghcr.io/andhuangg/fiap-store-api:1.1           app=store-api
+store-front       2/2     2            2           88s   store-front    nginxinc/nginx-unprivileged:1.30-alpine-slim   app=store-front
+store-relatorio   1/1     1            1           88s   relatorio      busybox:1.36                                   app=store-relatorio
+store-worker      2/2     2            2           88s   store-worker   busybox:1.36                                   app=store-worker
+
+$ kubectl exec -n store-dev deploy/store-worker -- printenv APP_ENV; kubectl exec -n store-prod deploy/store-worker -- printenv APP_ENV
+# 2026-10-31 19:28:40 -03
+dev
+prod
+
+########## Hook PreSync (Job valida-store-db) ##########
+$ argocd app get fiap-store-prod -o json | jq -r '.status.operationState.syncResult.resources[] | select(.hookType!=null) | "\(.hookType)  \(.kind)/\(.name)  hookPhase=\(.hookPhase)  \(.message)"'
+# 2026-10-31 19:28:41 -03
+PreSync  Job/valida-store-db  hookPhase=Succeeded  Reached expected number of succeeded pods
+
+$ argocd app get fiap-store-dev -o json | jq -r '.status.operationState.syncResult.resources[] | select(.hookType!=null) | "\(.hookType)  \(.kind)/\(.name)  hookPhase=\(.hookPhase)  \(.message)"'
+# 2026-10-31 19:28:42 -03
+PreSync  Job/valida-store-db  hookPhase=Succeeded  Reached expected number of succeeded pods
+
+$ kubectl get events -n store-prod --sort-by=.lastTimestamp | grep -E 'valida-store-db' | head -6
+# 2026-10-31 19:28:42 -03
+100s        Normal    Scheduled           pod/valida-store-db-kntmk               Successfully assigned store-prod/valida-store-db-kntmk to cp-bara
+100s        Normal    SuccessfulCreate    job/valida-store-db                     Created pod: valida-store-db-kntmk
+98s         Normal    Created             pod/valida-store-db-kntmk               Created container: valida
+98s         Normal    Pulled              pod/valida-store-db-kntmk               Container image "busybox:1.36" already present on machine
+97s         Normal    Started             pod/valida-store-db-kntmk               Started container valida
+93s         Normal    Completed           job/valida-store-db                     Job completed
+
+########## Kyverno: policies ativas e barrando ##########
+$ kubectl get clusterpolicy
+# 2026-10-31 19:28:42 -03
+Warning: kyverno.io/v1 ClusterPolicy is deprecated and will be removed in a future release; migrate to ValidatingPolicy, MutatingPolicy, GeneratingPolicy or ImageValidatingPolicy (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/
+NAME                 ADMISSION   BACKGROUND   READY   AGE   MESSAGE
+exigir-recursos      true        true         True    99s   Ready
+proibir-tag-latest   true        true         True    99s   Ready
+
+$ kubectl run teste-latest --image=busybox:latest -n store-dev --restart=Never --overrides='{"spec":{"securityContext":{"runAsNonRoot":true,"runAsUser":65532,"seccompProfile":{"type":"RuntimeDefault"}},"containers":[{"name":"t","image":"busybox:latest","command":["sleep","5"],"resources":{"requests":{"cpu":"10m","memory":"16Mi"},"limits":{"memory":"32Mi"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}}]}}'
+# 2026-10-31 19:28:42 -03
+Error from server: admission webhook "validate.kyverno.svc-fail" denied the request: 
+
+resource Pod/store-dev/teste-latest was blocked due to the following policies 
+
+proibir-tag-latest:
+  exigir-tag-explicita: 'validation error: Imagem com tag '':latest'' e proibida. Use uma tag imutavel, ex.: store-api:1.1. rule exigir-tag-explicita failed at path /spec/containers/0/image/'
+
+$ kubectl run teste-sem-recursos --image=busybox:1.36 -n store-prod --restart=Never --overrides='{"spec":{"securityContext":{"runAsNonRoot":true,"runAsUser":65532,"seccompProfile":{"type":"RuntimeDefault"}},"containers":[{"name":"t","image":"busybox:1.36","command":["sleep","5"],"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}}]}}'
+# 2026-10-31 19:28:43 -03
+Error from server: admission webhook "validate.kyverno.svc-fail" denied the request: 
+
+resource Pod/store-prod/teste-sem-recursos was blocked due to the following policies 
+
+exigir-recursos:
+  requests-e-limits-obrigatorios: 'validation error: Todo container deve declarar requests de cpu/memoria e limit de memoria. rule requests-e-limits-obrigatorios failed at path /spec/containers/0/resources/limits/'
+
+########## AppProject ##########
+$ kubectl get appproject fiap-store plataforma -n argocd
+# 2026-10-31 19:28:43 -03
+NAME         AGE
+fiap-store   4m12s
+plataforma   4m12s
+
+$ cd /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-config && tree -I .git
+# 2026-10-31 19:28:43 -03
+.
+├── apps
+│   ├── infra-knative.yaml
+│   ├── infra-kyverno.yaml
+│   ├── infra.yaml
+│   ├── project-plataforma.yaml
+│   ├── project.yaml
+│   ├── store-dev.yaml
+│   ├── store-prod.yaml
+│   └── store-serverless.yaml
+├── base
+│   ├── kustomization.yaml
+│   ├── presync-valida-db.yaml
+│   ├── store-api-deployment.yaml
+│   ├── store-api-service.yaml
+│   ├── store-front-deployment.yaml
+│   ├── store-relatorio-deployment.yaml
+│   └── store-worker-deployment.yaml
+├── infra
+│   ├── base
+│   │   ├── kustomization.yaml
+│   │   ├── kyverno-policies.yaml
+│   │   └── namespaces.yaml
+│   └── knative
+│       └── kustomization.yaml
+├── overlays
+│   ├── dev
+│   │   ├── kustomization.yaml
+│   │   └── sealedsecret-store-db.yaml
+│   ├── prod
+│   │   ├── kustomization.yaml
+│   │   ├── patch-prod-worker.yaml
+│   │   ├── patch-prod.yaml
+│   │   ├── pdb.yaml
+│   │   └── sealedsecret-store-db.yaml
+│   └── serverless
+│       ├── kustomization.yaml
+│       └── store-api-knative.yaml
+├── README.md
+└── root
+    ├── argocd-cm-health-application.yaml
+    └── fiap-store-root.yaml
+
+11 directories, 31 files
+

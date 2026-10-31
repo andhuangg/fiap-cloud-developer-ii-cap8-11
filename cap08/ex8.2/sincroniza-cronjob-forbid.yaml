@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sincroniza-catalogo
+  namespace: store-dev
+spec:
+  schedule: "*/5 * * * *"
+  timeZone: "America/Sao_Paulo"
+  startingDeadlineSeconds: 120
+  concurrencyPolicy: Forbid      # versao 2: pula a execucao se a anterior ainda estiver ativa
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: sync
+              image: busybox:1.36
+              # dura 6 minutos de proposito: a proxima execucao (5 min depois) encontra esta ainda ativa
+              command: ["sh", "-c", "echo inicio $(date); sleep 360; echo fim $(date)"]
+              env:
+                - name: API_TOKEN            # consumo 1: variavel de ambiente (lida so na criacao do container)
+                  valueFrom:
+                    secretKeyRef:
+                      name: catalogo-secret
+                      key: API_TOKEN
+              volumeMounts:
+                - name: token                # consumo 2: arquivo (atualizado pelo kubelet)
+                  mountPath: /etc/catalogo
+                  readOnly: true
+          volumes:
+            - name: token
+              secret:
+                secretName: catalogo-secret
+                defaultMode: 0400
+                items:
+                  - key: API_TOKEN
+                    path: token

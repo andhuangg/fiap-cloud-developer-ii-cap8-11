@@ -1,0 +1,9 @@
+# carga critica: em falta de recurso, o scheduler preempta Pods de prioridade menor antes da store-api
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: fiap-store-critico
+value: 100000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: "Cargas criticas da FIAP Store em producao (store-api)"

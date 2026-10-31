@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fiap-store-serverless
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "1"}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # apagar a Application apaga os recursos que ela criou
+spec:
+  project: fiap-store
+  source:
+    repoURL: https://github.com/andhuangg/fiap-store-config.git
+    targetRevision: main
+    path: overlays/serverless
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: store-serverless
+  syncPolicy:
+    automated:
+      prune: true        # remove do cluster o que saiu do Git
+      selfHeal: true     # desfaz alteracoes manuais (drift)
+    syncOptions: [RespectIgnoreDifferences=true]
+  ignoreDifferences:
+    # o webhook do Knative grava quem criou/alterou o Service; nao e intencao declarada no Git
+    - group: serving.knative.dev
+      kind: Service
+      jsonPointers:
+        - /metadata/annotations/serving.knative.dev~1creator
+        - /metadata/annotations/serving.knative.dev~1lastModifier

@@ -1,0 +1,187 @@
+$ kubectl apply -f monitor-rbac.yaml
+# 2026-10-31 17:20:33 -03
+serviceaccount/monitor-sa created
+role.rbac.authorization.k8s.io/leitura-store created
+rolebinding.rbac.authorization.k8s.io/monitor-sa-leitura-store created
+pod/monitor created
+
+########## (a) can-i com impersonation ##########
+$ kubectl auth can-i get pods -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:20:33 -03
+yes
+
+$ kubectl auth can-i list services -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:20:33 -03
+yes
+
+$ kubectl auth can-i watch endpoints -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:20:33 -03
+yes
+
+$ kubectl auth can-i get configmaps -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:20:33 -03
+yes
+
+$ kubectl auth can-i get pods/log -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:20:33 -03
+yes
+
+$ kubectl auth can-i list pods -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:20:33 -03
+yes
+
+$ kubectl auth can-i get secrets -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:20:33 -03
+no
+
+$ kubectl auth can-i create pods -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:20:34 -03
+no
+
+$ kubectl auth can-i delete pods -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:20:34 -03
+no
+
+$ kubectl auth can-i --list -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:20:34 -03
+Resources                                       Non-Resource URLs                      Resource Names   Verbs
+selfsubjectreviews.authentication.k8s.io        []                                     []               [create]
+selfsubjectaccessreviews.authorization.k8s.io   []                                     []               [create]
+selfsubjectrulesreviews.authorization.k8s.io    []                                     []               [create]
+configmaps                                      []                                     []               [get list watch]
+endpoints                                       []                                     []               [get list watch]
+pods/log                                        []                                     []               [get list watch]
+pods                                            []                                     []               [get list watch]
+services                                        []                                     []               [get list watch]
+                                                [/.well-known/openid-configuration/]   []               [get]
+                                                [/.well-known/openid-configuration]    []               [get]
+                                                [/api/*]                               []               [get]
+                                                [/api]                                 []               [get]
+                                                [/apis/*]                              []               [get]
+                                                [/apis]                                []               [get]
+                                                [/healthz]                             []               [get]
+                                                [/healthz]                             []               [get]
+                                                [/livez]                               []               [get]
+                                                [/livez]                               []               [get]
+                                                [/openapi/*]                           []               [get]
+                                                [/openapi]                             []               [get]
+                                                [/openid/v1/jwks/]                     []               [get]
+                                                [/openid/v1/jwks]                      []               [get]
+                                                [/readyz]                              []               [get]
+                                                [/readyz]                              []               [get]
+                                                [/version/]                            []               [get]
+                                                [/version/]                            []               [get]
+                                                [/version]                             []               [get]
+                                                [/version]                             []               [get]
+
+########## (b) token JWT ##########
+$ echo "$(cat /private/tmp/claude-501/-Users-huang/2a30e003-12cd-4ff9-bcf8-2411c699a893/scratchpad/token91 | cut -c1-40)... (token truncado)"
+# 2026-10-31 17:20:34 -03
+eyJhbGciOiJSUzI1NiIsImtpZCI6InFTRC1obC1S... (token truncado)
+
+$ cat /private/tmp/claude-501/-Users-huang/2a30e003-12cd-4ff9-bcf8-2411c699a893/scratchpad/token91 | cut -d. -f2 | tr '_-' '/+' | awk '{n=length($0)%4; if(n==2)$0=$0"=="; else if(n==3)$0=$0"="; print}' | base64 -d | jq .
+# 2026-10-31 17:20:34 -03
+{
+  "aud": [
+    "https://kubernetes.default.svc.cluster.local"
+  ],
+  "exp": 1793481634,
+  "iat": 1793478034,
+  "iss": "https://kubernetes.default.svc.cluster.local",
+  "jti": "41bc7110-5a41-4e0e-8546-9d82a1f4bf2b",
+  "kubernetes.io": {
+    "namespace": "store-dev",
+    "serviceaccount": {
+      "name": "monitor-sa",
+      "uid": "9b6999c3-71fd-4697-ad46-53c228921396"
+    }
+  },
+  "nbf": 1793478034,
+  "sub": "system:serviceaccount:store-dev:monitor-sa"
+}
+
+$ cat /private/tmp/claude-501/-Users-huang/2a30e003-12cd-4ff9-bcf8-2411c699a893/scratchpad/token91 | cut -d. -f2 | tr '_-' '/+' | awk '{n=length($0)%4; if(n==2)$0=$0"=="; else if(n==3)$0=$0"="; print}' | base64 -d | jq '{sub, aud, exp, exp_legivel: (.exp|todate), iat_legivel: (.iat|todate)}'
+# 2026-10-31 17:20:34 -03
+{
+  "sub": "system:serviceaccount:store-dev:monitor-sa",
+  "aud": [
+    "https://kubernetes.default.svc.cluster.local"
+  ],
+  "exp": 1793481634,
+  "exp_legivel": "2026-10-31T21:20:34Z",
+  "iat_legivel": "2026-10-31T20:20:34Z"
+}
+
+########## (c) curl de dentro do Pod com o token montado ##########
+$ kubectl exec -n store-dev monitor -- sh -c 'ls /var/run/secrets/kubernetes.io/serviceaccount/'
+# 2026-10-31 17:20:35 -03
+ca.crt
+namespace
+token
+
+$ kubectl exec -n store-dev monitor -- sh -c 'TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token); curl -sS --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization: Bearer $TOKEN" -w "
+HTTP %{http_code}
+" https://kubernetes.default.svc/api/v1/namespaces/store-dev/secrets'
+# 2026-10-31 17:20:35 -03
+{
+  "kind": "Status",
+  "apiVersion": "v1",
+  "metadata": {},
+  "status": "Failure",
+  "message": "secrets is forbidden: User \"system:serviceaccount:store-dev:monitor-sa\" cannot list resource \"secrets\" in API group \"\" in the namespace \"store-dev\"",
+  "reason": "Forbidden",
+  "details": {
+    "kind": "secrets"
+  },
+  "code": 403
+}
+HTTP 403
+
+$ kubectl auth can-i get pods -n store-prod --as=system:serviceaccount:store-dev:monitor-sa   # Role e namespaced: fora de store-dev nao vale
+# 2026-10-31 17:20:47 -03
+no
+
+$ kubectl exec -n store-dev monitor -- sh -c 'TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token); curl -sS --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization: Bearer $TOKEN" -w "
+HTTP %{http_code}
+" https://kubernetes.default.svc/api/v1/namespaces/store-dev/pods' > /private/tmp/claude-501/-Users-huang/2a30e003-12cd-4ff9-bcf8-2411c699a893/scratchpad/pods.json; tail -1 /private/tmp/claude-501/-Users-huang/2a30e003-12cd-4ff9-bcf8-2411c699a893/scratchpad/pods.json; sed '$d' /private/tmp/claude-501/-Users-huang/2a30e003-12cd-4ff9-bcf8-2411c699a893/scratchpad/pods.json | jq -r '"kind=" + .kind + "  itens=" + (.items|length|tostring), (.items[] | "  " + .metadata.name + "  " + .status.phase)'
+# 2026-10-31 17:20:47 -03
+HTTP 200
+kind=PodList  itens=22
+  cliente  Running
+  monitor  Running
+  processa-particoes-0-q2m7p  Succeeded
+  processa-particoes-1-vj9rs  Succeeded
+  processa-particoes-2-mfxvz  Succeeded
+  processa-particoes-3-qp5t7  Succeeded
+  processa-pedidos-2q9f5  Succeeded
+  processa-pedidos-425dn  Succeeded
+  processa-pedidos-4jwld  Succeeded
+  processa-pedidos-c7jdq  Succeeded
+  processa-pedidos-fbgx2  Succeeded
+  processa-pedidos-hskp4  Succeeded
+  processa-pedidos-qj698  Succeeded
+  processa-pedidos-spnqc  Succeeded
+  processa-pedidos-x945l  Succeeded
+  processa-pedidos-zn2q6  Succeeded
+  redis-74cd45cd74-rcrzm  Running
+  relatorio-quebrado-vgv96  Succeeded
+  sincroniza-catalogo-29891295-bxdv9  Running
+  sincroniza-catalogo-29891300-6v7fm  Running
+  store-api-5f986f48b9-n7vsr  Running
+  store-api-5f986f48b9-v2cts  Running
+
+########## RECONFERENCIA do item pods/log (forma correta: --subresource) ##########
+# O atalho 'can-i get pods/log' nao distingue o subresource de forma confiavel (ver ex9.2 e ex9.3). A prova abaixo usa --subresource.
+$ kubectl auth can-i get pods --subresource=log -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:24:07 -03
+yes
+
+$ kubectl auth can-i create pods --subresource=exec -n store-dev --as=system:serviceaccount:store-dev:monitor-sa
+# 2026-10-31 17:24:07 -03
+no
+
+$ kubectl logs -n store-dev store-api-5f986f48b9-n7vsr --as=system:serviceaccount:store-dev:monitor-sa | head -2
+# 2026-10-31 17:24:07 -03
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+

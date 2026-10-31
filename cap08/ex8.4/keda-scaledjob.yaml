@@ -1,0 +1,48 @@
+# ScaledJob: o KEDA cria Jobs (e nao Pods de um Deployment) conforme o tamanho da fila.
+# Com a fila vazia nao existe nenhum Job/Pod (escala a zero real).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: store-worker-fila
+  namespace: store-dev
+spec:
+  pollingInterval: 5               # consulta a fila a cada 5s
+  minReplicaCount: 0               # zero Jobs quando a fila esta vazia
+  maxReplicaCount: 10              # no maximo 10 Jobs em paralelo
+  successfulJobsHistoryLimit: 0    # nao guarda Jobs concluidos (facilita ver o "volta a zero")
+  failedJobsHistoryLimit: 2
+  scalingStrategy:
+    strategy: default              # jobs = ceil(LLEN / listLength) - jobs em execucao
+  jobTargetRef:
+    backoffLimit: 2
+    ttlSecondsAfterFinished: 30
+    template:
+      metadata:
+        labels: {app: store-worker}
+      spec:
+        restartPolicy: Never
+        containers:
+          - name: store-worker
+            image: redis:7-alpine    # usa o redis-cli da imagem como cliente da fila
+            command: ["sh", "-c"]
+            args:
+              - |
+                # cada Job consome ate 5 pedidos (= listLength) e termina
+                for i in 1 2 3 4 5; do
+                  P=$(redis-cli -h redis.store-dev.svc.cluster.local LPOP pedidos)
+                  [ -z "$P" ] && break
+                  echo "$(hostname) processando $P"
+                  sleep 3
+                  # registra o pedido processado (prova de que os 50 foram consumidos)
+                  redis-cli -h redis.store-dev.svc.cluster.local RPUSH processados "$P por $(hostname)" >/dev/null
+                done
+                echo "$(hostname) terminou"
+            resources:
+              requests: {cpu: 20m, memory: 16Mi}
+              limits: {memory: 64Mi}
+  triggers:
+    - type: redis
+      metadata:
+        address: redis.store-dev.svc.cluster.local:6379
+        listName: pedidos
+        listLength: "5"            # alvo: 1 Job para cada 5 itens na fila

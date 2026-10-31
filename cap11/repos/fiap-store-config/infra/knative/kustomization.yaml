@@ -1,0 +1,25 @@
+# Knative Serving + Kourier direto dos YAMLs oficiais de release (versao fixada).
+# 1.21.x: ultima linha que aceita Kubernetes 1.33 (a 1.24 exige >= 1.35: "Version check failed")
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- https://github.com/knative/serving/releases/download/knative-v1.21.3/serving-core.yaml
+- https://github.com/knative-extensions/net-kourier/releases/download/knative-v1.21.1/kourier.yaml
+patches:
+- target: {kind: ConfigMap, name: config-network, namespace: knative-serving}
+  patch: |-
+    - op: add
+      path: /data/ingress-class
+      value: kourier.ingress.networking.knative.dev
+- target: {kind: ConfigMap, name: config-domain, namespace: knative-serving}
+  patch: |-
+    - op: add
+      path: /data/fiap.local
+      value: ""
+# minikube nao tem LoadBalancer: um Service LoadBalancer sem IP externo fica "Progressing" para sempre
+# no health do Argo e trava o sync-wave do App-of-Apps. NodePort atende o laboratorio.
+- target: {kind: Service, name: kourier, namespace: kourier-system}
+  patch: |-
+    - op: replace
+      path: /spec/type
+      value: NodePort

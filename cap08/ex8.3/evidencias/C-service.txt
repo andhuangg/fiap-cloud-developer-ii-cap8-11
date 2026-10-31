@@ -1,0 +1,213 @@
+$ kubectl apply -f manifestos/C-deployment.yaml -f manifestos/C1-service-selector-errado.yaml -f manifestos/C-pod-cliente.yaml
+# 2026-10-31 17:14:19 -03
+deployment.apps/store-api created
+service/store-api created
+pod/cliente created
+
+### CAUSA 1: selector errado
+$ kubectl get pods -n store-dev -l app=store-api --show-labels
+# 2026-10-31 17:14:23 -03
+NAME                         READY   STATUS    RESTARTS   AGE   LABELS
+store-api-5f986f48b9-4b8bp   1/1     Running   0          4s    app=store-api,pod-template-hash=5f986f48b9
+store-api-5f986f48b9-7p5z5   1/1     Running   0          4s    app=store-api,pod-template-hash=5f986f48b9
+
+$ kubectl get endpointslices -n store-dev -l kubernetes.io/service-name=store-api -o wide
+# 2026-10-31 17:14:23 -03
+NAME              ADDRESSTYPE   PORTS     ENDPOINTS   AGE
+store-api-t4vz8   IPv4          <unset>   <unset>     5s
+
+$ kubectl get endpoints store-api -n store-dev
+# 2026-10-31 17:14:24 -03
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME        ENDPOINTS   AGE
+store-api   <none>      5s
+
+$ kubectl describe svc store-api -n store-dev
+# 2026-10-31 17:14:24 -03
+Name:                     store-api
+Namespace:                store-dev
+Labels:                   <none>
+Annotations:              <none>
+Selector:                 app=storeapi
+Type:                     ClusterIP
+IP Family Policy:         SingleStack
+IP Families:              IPv4
+IP:                       10.96.154.3
+IPs:                      10.96.154.3
+Port:                     <unset>  80/TCP
+TargetPort:               8000/TCP
+Endpoints:                
+Session Affinity:         None
+Internal Traffic Policy:  Cluster
+Events:                   <none>
+
+$ kubectl exec cliente -n store-dev -- curl -sS -m 3 http://store-api/health
+# 2026-10-31 17:14:24 -03
+curl: (7) Failed to connect to store-api port 80 after 9 ms: Could not connect to server
+command terminated with exit code 7
+
+$ kubectl get pods -n store-dev -l app=storeapi
+# 2026-10-31 17:14:24 -03
+No resources found in store-dev namespace.
+
+### CORRECAO 1: selector app: store-api
+$ kubectl apply -f manifestos/C-service-corrigido.yaml
+# 2026-10-31 17:14:24 -03
+service/store-api configured
+
+$ kubectl get endpointslices -n store-dev -l kubernetes.io/service-name=store-api -o wide
+# 2026-10-31 17:14:27 -03
+NAME              ADDRESSTYPE   PORTS   ENDPOINTS                 AGE
+store-api-t4vz8   IPv4          8000    10.244.0.24,10.244.0.25   8s
+
+$ kubectl exec cliente -n store-dev -- curl -sS -m 3 http://store-api/health
+# 2026-10-31 17:14:27 -03
+{"status":"ok","host":"store-api-5f986f48b9-4b8bp"}
+### CAUSA 2: selector correto, readinessProbe em /pronto (404)
+$ kubectl apply -f manifestos/C2-deployment-readiness-quebrada.yaml
+# 2026-10-31 17:14:33 -03
+deployment.apps/store-api configured
+
+$ kubectl get pods -n store-dev -l app=store-api -o wide
+# 2026-10-31 17:15:13 -03
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE      NOMINATED NODE   READINESS GATES
+store-api-5f986f48b9-4b8bp   1/1     Running   0          55s   10.244.0.24   cp-bara   <none>           <none>
+store-api-5f986f48b9-7p5z5   1/1     Running   0          55s   10.244.0.25   cp-bara   <none>           <none>
+store-api-6b6458f88b-tgtcw   0/1     Running   0          41s   10.244.0.27   cp-bara   <none>           <none>
+
+$ kubectl get endpointslices -n store-dev -l kubernetes.io/service-name=store-api -o wide
+# 2026-10-31 17:15:14 -03
+NAME              ADDRESSTYPE   PORTS   ENDPOINTS                             AGE
+store-api-t4vz8   IPv4          8000    10.244.0.24,10.244.0.25,10.244.0.27   55s
+
+$ kubectl get endpoints store-api -n store-dev
+# 2026-10-31 17:15:14 -03
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME        ENDPOINTS                           AGE
+store-api   10.244.0.24:8000,10.244.0.25:8000   55s
+
+$ kubectl get endpointslices -n store-dev -l kubernetes.io/service-name=store-api -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]} ready={.conditions.ready} serving={.conditions.serving}{"
+"}{end}'
+# 2026-10-31 17:15:14 -03
+10.244.0.24 ready=true serving=true
+10.244.0.25 ready=true serving=true
+10.244.0.27 ready=false serving=false
+
+$ kubectl describe pod/store-api-6b6458f88b-tgtcw -n store-dev | sed -n '/^Conditions:/,/^Volumes:/p;/^Events:/,$p'
+# 2026-10-31 17:15:14 -03
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+Events:
+  Type     Reason     Age               From               Message
+  ----     ------     ----              ----               -------
+  Normal   Scheduled  41s               default-scheduler  Successfully assigned store-dev/store-api-6b6458f88b-tgtcw to cp-bara
+  Normal   Pulled     40s               kubelet            Container image "store-api:1.0" already present on machine
+  Normal   Created    40s               kubelet            Created container: store-api
+  Normal   Started    40s               kubelet            Started container store-api
+  Warning  Unhealthy  3s (x9 over 39s)  kubelet            Readiness probe failed: HTTP probe failed with statuscode: 404
+
+$ kubectl exec cliente -n store-dev -- curl -sS -m 3 -o /dev/null -w %{http_code}
+ http://10.244.0.27:8000/pronto
+# 2026-10-31 17:15:14 -03
+404n
+$ kubectl rollout status deploy/store-api -n store-dev --timeout=5s
+# 2026-10-31 17:15:14 -03
+Waiting for deployment "store-api" rollout to finish: 1 out of 2 new replicas have been updated...
+error: timed out waiting for the condition
+
+### Observacao: no rolling update os Pods antigos (Ready) seguram o endpoint e o rollout trava. Para isolar a causa 2, o Deployment e recriado do zero com a probe quebrada.
+$ kubectl delete deploy store-api -n store-dev --wait=true
+# 2026-10-31 17:15:29 -03
+deployment.apps "store-api" deleted
+
+$ kubectl apply -f manifestos/C2-deployment-readiness-quebrada.yaml
+# 2026-10-31 17:15:29 -03
+deployment.apps/store-api created
+
+$ kubectl get pods -n store-dev -l app=store-api -o wide
+# 2026-10-31 17:16:04 -03
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE      NOMINATED NODE   READINESS GATES
+store-api-6b6458f88b-4r74d   0/1     Running   0          35s   10.244.0.30   cp-bara   <none>           <none>
+store-api-6b6458f88b-dl9gt   0/1     Running   0          35s   10.244.0.29   cp-bara   <none>           <none>
+
+$ kubectl get endpointslices -n store-dev -l kubernetes.io/service-name=store-api -o wide
+# 2026-10-31 17:16:04 -03
+NAME              ADDRESSTYPE   PORTS   ENDPOINTS                 AGE
+store-api-t4vz8   IPv4          8000    10.244.0.30,10.244.0.29   105s
+
+$ kubectl get endpoints store-api -n store-dev
+# 2026-10-31 17:16:04 -03
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME        ENDPOINTS   AGE
+store-api               105s
+
+$ kubectl get endpointslices -n store-dev -l kubernetes.io/service-name=store-api -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]} ready={.conditions.ready}{"
+"}{end}'
+# 2026-10-31 17:16:05 -03
+10.244.0.30 ready=false
+10.244.0.29 ready=false
+
+$ kubectl describe pod/store-api-6b6458f88b-4r74d -n store-dev | sed -n '/^Conditions:/,/^Volumes:/p;/^Events:/,$p'
+# 2026-10-31 17:16:05 -03
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+Events:
+  Type     Reason     Age               From               Message
+  ----     ------     ----              ----               -------
+  Normal   Scheduled  36s               default-scheduler  Successfully assigned store-dev/store-api-6b6458f88b-4r74d to cp-bara
+  Normal   Pulled     35s               kubelet            Container image "store-api:1.0" already present on machine
+  Normal   Created    35s               kubelet            Created container: store-api
+  Normal   Started    35s               kubelet            Started container store-api
+  Warning  Unhealthy  2s (x9 over 34s)  kubelet            Readiness probe failed: HTTP probe failed with statuscode: 404
+
+$ kubectl exec cliente -n store-dev -- curl -sS -m 3 http://store-api/health
+# 2026-10-31 17:16:05 -03
+curl: (7) Failed to connect to store-api port 80 after 43 ms: Could not connect to server
+command terminated with exit code 7
+
+$ kubectl exec cliente -n store-dev -- curl -s -m 3 -o /dev/null -w '%{http_code}' http://10.244.0.30:8000/pronto; echo
+# 2026-10-31 17:16:07 -03
+404
+
+### CORRECAO 2: readinessProbe volta para /ready
+$ kubectl apply -f manifestos/C-deployment.yaml
+# 2026-10-31 17:16:07 -03
+deployment.apps/store-api configured
+
+$ kubectl rollout status deploy/store-api -n store-dev --timeout=120s
+# 2026-10-31 17:16:07 -03
+Waiting for deployment "store-api" rollout to finish: 0 out of 2 new replicas have been updated...
+Waiting for deployment "store-api" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "store-api" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "store-api" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "store-api" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "store-api" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "store-api" rollout to finish: 1 old replicas are pending termination...
+deployment "store-api" successfully rolled out
+
+$ kubectl get pods -n store-dev -l app=store-api -o wide
+# 2026-10-31 17:16:15 -03
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE      NOMINATED NODE   READINESS GATES
+store-api-5f986f48b9-n7vsr   1/1     Running   0          5s    10.244.0.32   cp-bara   <none>           <none>
+store-api-5f986f48b9-v2cts   1/1     Running   0          8s    10.244.0.31   cp-bara   <none>           <none>
+
+$ kubectl get endpointslices -n store-dev -l kubernetes.io/service-name=store-api -o wide
+# 2026-10-31 17:16:15 -03
+NAME              ADDRESSTYPE   PORTS   ENDPOINTS                 AGE
+store-api-t4vz8   IPv4          8000    10.244.0.31,10.244.0.32   116s
+
+$ kubectl exec cliente -n store-dev -- curl -sS -m 3 http://store-api/health
+# 2026-10-31 17:16:15 -03
+{"status":"ok","host":"store-api-5f986f48b9-v2cts"}

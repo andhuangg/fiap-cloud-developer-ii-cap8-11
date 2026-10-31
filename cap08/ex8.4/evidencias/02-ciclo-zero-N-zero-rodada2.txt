@@ -1,0 +1,219 @@
+########## (a) FILA VAZIA -> ZERO PODS ##########
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LLEN pedidos
+# 2026-10-31 17:18:58 -03
+0
+
+$ kubectl get pods -n store-dev -l app=store-worker
+# 2026-10-31 17:18:58 -03
+No resources found in store-dev namespace.
+
+########## (b) INSERE 50 PEDIDOS -> KEDA CRIA JOBS ##########
+$ kubectl exec -n store-dev deploy/redis -- sh -c 'for i in $(seq 1 50); do redis-cli RPUSH pedidos "pedido-$i" >/dev/null; done; redis-cli LLEN pedidos'
+# 2026-10-31 17:18:58 -03
+50
+
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LLEN pedidos | xargs echo 'LLEN pedidos:'; kubectl get pods -n store-dev -l app=store-worker
+# 2026-10-31 17:19:03 -03
+LLEN pedidos: 50
+NAME                            READY   STATUS              RESTARTS   AGE
+store-worker-fila-5jqp4-k5xxx   0/1     ContainerCreating   0          1s
+store-worker-fila-6mvpq-fqgbs   0/1     ContainerCreating   0          1s
+store-worker-fila-8qf6t-hnm7b   0/1     ContainerCreating   0          1s
+store-worker-fila-bpfr8-bhtt9   0/1     ContainerCreating   0          1s
+store-worker-fila-dx67z-nx9bt   0/1     ContainerCreating   0          1s
+store-worker-fila-hjg7p-s4bbm   0/1     ContainerCreating   0          1s
+store-worker-fila-j8twb-78vfl   0/1     ContainerCreating   0          1s
+store-worker-fila-jnsdj-b8fks   0/1     ContainerCreating   0          1s
+store-worker-fila-pj4fz-g4chq   0/1     ContainerCreating   0          1s
+store-worker-fila-sx2ww-l6fsb   0/1     ContainerCreating   0          1s
+
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LLEN pedidos | xargs echo 'LLEN pedidos:'; kubectl get pods -n store-dev -l app=store-worker
+# 2026-10-31 17:19:08 -03
+LLEN pedidos: 30
+NAME                            READY   STATUS    RESTARTS   AGE
+store-worker-fila-5jqp4-k5xxx   1/1     Running   0          7s
+store-worker-fila-6mvpq-fqgbs   1/1     Running   0          7s
+store-worker-fila-8qf6t-hnm7b   1/1     Running   0          7s
+store-worker-fila-bpfr8-bhtt9   1/1     Running   0          7s
+store-worker-fila-dx67z-nx9bt   1/1     Running   0          7s
+store-worker-fila-hjg7p-s4bbm   1/1     Running   0          7s
+store-worker-fila-j8twb-78vfl   1/1     Running   0          7s
+store-worker-fila-jnsdj-b8fks   1/1     Running   0          7s
+store-worker-fila-pj4fz-g4chq   1/1     Running   0          7s
+store-worker-fila-sx2ww-l6fsb   1/1     Running   0          7s
+
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LLEN pedidos | xargs echo 'LLEN pedidos:'; kubectl get pods -n store-dev -l app=store-worker
+# 2026-10-31 17:19:14 -03
+LLEN pedidos: 10
+NAME                            READY   STATUS    RESTARTS   AGE
+store-worker-fila-5jqp4-k5xxx   1/1     Running   0          12s
+store-worker-fila-6mvpq-fqgbs   1/1     Running   0          12s
+store-worker-fila-8qf6t-hnm7b   1/1     Running   0          12s
+store-worker-fila-bpfr8-bhtt9   1/1     Running   0          12s
+store-worker-fila-dx67z-nx9bt   1/1     Running   0          12s
+store-worker-fila-hjg7p-s4bbm   1/1     Running   0          12s
+store-worker-fila-j8twb-78vfl   1/1     Running   0          12s
+store-worker-fila-jnsdj-b8fks   1/1     Running   0          12s
+store-worker-fila-pj4fz-g4chq   1/1     Running   0          12s
+store-worker-fila-sx2ww-l6fsb   1/1     Running   0          12s
+
+$ kubectl logs -n store-dev -l app=store-worker --prefix --tail=3
+# 2026-10-31 17:19:14 -03
+[pod/store-worker-fila-bpfr8-bhtt9/store-worker] store-worker-fila-bpfr8-bhtt9 processando pedido-12
+[pod/store-worker-fila-bpfr8-bhtt9/store-worker] store-worker-fila-bpfr8-bhtt9 processando pedido-22
+[pod/store-worker-fila-bpfr8-bhtt9/store-worker] store-worker-fila-bpfr8-bhtt9 processando pedido-32
+[pod/store-worker-fila-dx67z-nx9bt/store-worker] store-worker-fila-dx67z-nx9bt processando pedido-14
+[pod/store-worker-fila-dx67z-nx9bt/store-worker] store-worker-fila-dx67z-nx9bt processando pedido-23
+[pod/store-worker-fila-dx67z-nx9bt/store-worker] store-worker-fila-dx67z-nx9bt processando pedido-33
+[pod/store-worker-fila-j8twb-78vfl/store-worker] store-worker-fila-j8twb-78vfl processando pedido-15
+[pod/store-worker-fila-j8twb-78vfl/store-worker] store-worker-fila-j8twb-78vfl processando pedido-25
+[pod/store-worker-fila-j8twb-78vfl/store-worker] store-worker-fila-j8twb-78vfl processando pedido-34
+[pod/store-worker-fila-jnsdj-b8fks/store-worker] store-worker-fila-jnsdj-b8fks processando pedido-13
+[pod/store-worker-fila-jnsdj-b8fks/store-worker] store-worker-fila-jnsdj-b8fks processando pedido-24
+[pod/store-worker-fila-jnsdj-b8fks/store-worker] store-worker-fila-jnsdj-b8fks processando pedido-35
+[pod/store-worker-fila-sx2ww-l6fsb/store-worker] store-worker-fila-sx2ww-l6fsb processando pedido-20
+[pod/store-worker-fila-sx2ww-l6fsb/store-worker] store-worker-fila-sx2ww-l6fsb processando pedido-30
+[pod/store-worker-fila-sx2ww-l6fsb/store-worker] store-worker-fila-sx2ww-l6fsb processando pedido-40
+[pod/store-worker-fila-5jqp4-k5xxx/store-worker] store-worker-fila-5jqp4-k5xxx processando pedido-11
+[pod/store-worker-fila-5jqp4-k5xxx/store-worker] store-worker-fila-5jqp4-k5xxx processando pedido-21
+[pod/store-worker-fila-5jqp4-k5xxx/store-worker] store-worker-fila-5jqp4-k5xxx processando pedido-31
+[pod/store-worker-fila-6mvpq-fqgbs/store-worker] store-worker-fila-6mvpq-fqgbs processando pedido-18
+[pod/store-worker-fila-6mvpq-fqgbs/store-worker] store-worker-fila-6mvpq-fqgbs processando pedido-28
+[pod/store-worker-fila-6mvpq-fqgbs/store-worker] store-worker-fila-6mvpq-fqgbs processando pedido-39
+[pod/store-worker-fila-8qf6t-hnm7b/store-worker] store-worker-fila-8qf6t-hnm7b processando pedido-16
+[pod/store-worker-fila-8qf6t-hnm7b/store-worker] store-worker-fila-8qf6t-hnm7b processando pedido-26
+[pod/store-worker-fila-8qf6t-hnm7b/store-worker] store-worker-fila-8qf6t-hnm7b processando pedido-36
+[pod/store-worker-fila-hjg7p-s4bbm/store-worker] store-worker-fila-hjg7p-s4bbm processando pedido-19
+[pod/store-worker-fila-hjg7p-s4bbm/store-worker] store-worker-fila-hjg7p-s4bbm processando pedido-29
+[pod/store-worker-fila-hjg7p-s4bbm/store-worker] store-worker-fila-hjg7p-s4bbm processando pedido-38
+[pod/store-worker-fila-pj4fz-g4chq/store-worker] store-worker-fila-pj4fz-g4chq processando pedido-17
+[pod/store-worker-fila-pj4fz-g4chq/store-worker] store-worker-fila-pj4fz-g4chq processando pedido-27
+[pod/store-worker-fila-pj4fz-g4chq/store-worker] store-worker-fila-pj4fz-g4chq processando pedido-37
+
+########## (c) FILA ESVAZIADA -> VOLTA A ZERO ##########
+17:19:19 LLEN=0 pods=10
+17:19:25 LLEN=0 pods=0
+$ kubectl get pods -n store-dev -l app=store-worker
+# 2026-10-31 17:19:25 -03
+No resources found in store-dev namespace.
+
+$ kubectl get jobs -n store-dev -l scaledjob.keda.sh/name=store-worker-fila
+# 2026-10-31 17:19:25 -03
+No resources found in store-dev namespace.
+
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LLEN processados
+# 2026-10-31 17:19:25 -03
+50
+
+$ kubectl exec -n store-dev deploy/redis -- redis-cli LRANGE processados 0 -1 | awk '{print $3}' | sort | uniq -c | sort -rn
+# 2026-10-31 17:19:25 -03
+   5 store-worker-fila-sx2ww-l6fsb
+   5 store-worker-fila-pj4fz-g4chq
+   5 store-worker-fila-jnsdj-b8fks
+   5 store-worker-fila-j8twb-78vfl
+   5 store-worker-fila-hjg7p-s4bbm
+   5 store-worker-fila-dx67z-nx9bt
+   5 store-worker-fila-bpfr8-bhtt9
+   5 store-worker-fila-8qf6t-hnm7b
+   5 store-worker-fila-6mvpq-fqgbs
+   5 store-worker-fila-5jqp4-k5xxx
+
+$ kubectl describe scaledjob store-worker-fila -n store-dev
+# 2026-10-31 17:19:25 -03
+Name:         store-worker-fila
+Namespace:    store-dev
+Labels:       <none>
+Annotations:  <none>
+API Version:  keda.sh/v1alpha1
+Kind:         ScaledJob
+Metadata:
+  Creation Timestamp:  2026-10-31T20:17:53Z
+  Finalizers:
+    finalizer.keda.sh
+  Generation:        3
+  Resource Version:  2072
+  UID:               41d84dee-7393-4e4f-b56e-7552ddcf1f89
+Spec:
+  Failed Jobs History Limit:  2
+  Job Target Ref:
+    Backoff Limit:  2
+    Template:
+      Metadata:
+        Labels:
+          App:  store-worker
+      Spec:
+        Containers:
+          Args:
+            # cada Job consome ate 5 pedidos (= listLength) e termina
+for i in 1 2 3 4 5; do
+  P=$(redis-cli -h redis.store-dev.svc.cluster.local LPOP pedidos)
+  [ -z "$P" ] && break
+  echo "$(hostname) processando $P"
+  sleep 3
+  # registra o pedido processado (prova de que os 50 foram consumidos)
+  redis-cli -h redis.store-dev.svc.cluster.local RPUSH processados "$P por $(hostname)" >/dev/null
+done
+echo "$(hostname) terminou"
+
+          Command:
+            sh
+            -c
+          Image:  redis:7-alpine
+          Name:   store-worker
+          Resources:
+            Limits:
+              Memory:  64Mi
+            Requests:
+              Cpu:               20m
+              Memory:            16Mi
+        Restart Policy:          Never
+    Ttl Seconds After Finished:  30
+  Max Replica Count:             10
+  Min Replica Count:             0
+  Polling Interval:              5
+  Rollout:
+  Scaling Strategy:
+    Strategy:                     default
+  Successful Jobs History Limit:  0
+  Triggers:
+    Metadata:
+      Address:      redis.store-dev.svc.cluster.local:6379
+      List Length:  5
+      List Name:    pedidos
+    Type:           redis
+Status:
+  Authentications Types:  
+  Conditions:
+    Message:         ScaledJob is defined correctly and is ready for scaling
+    Reason:          ScaledJobReady
+    Status:          True
+    Type:            Ready
+    Message:         Scaling is not performed because triggers are not active
+    Reason:          ScalerNotActive
+    Status:          False
+    Type:            Active
+    Status:          Unknown
+    Type:            Fallback
+    Status:          False
+    Type:            Paused
+  Last Active Time:  2026-10-31T20:19:12Z
+  Triggers Activity:
+    s0-redis-pedidos:
+      Is Active:   false
+  Triggers Types:  redis
+Events:
+  Type    Reason              Age                From           Message
+  ----    ------              ----               ----           -------
+  Normal  KEDAScalersStarted  92s                scale-handler  Scaler redis is built
+  Normal  KEDAScalersStarted  92s                scale-handler  Started scalers watch
+  Normal  ScaledJobReady      92s                keda-operator  ScaledJob is ready for scaling
+  Normal  ScaledJobReady      92s                keda-operator  ScaledJob is ready for scaling
+  Normal  KEDAScalersStarted  87s                scale-handler  Scaler redis is built
+  Normal  KEDAJobsCreated     67s                scale-handler  Created 10 jobs
+  Normal  ScaledJobActive     67s                scale-handler  Scaling is performed because triggers are active
+  Normal  ScaledJobInactive   52s                scale-handler  Scaling is not performed because triggers are not active
+  Normal  KEDAScalersStarted  27s (x2 over 27s)  scale-handler  Scaler redis is built
+  Normal  KEDAJobsCreated     22s                scale-handler  Created 10 jobs
+  Normal  ScaledJobActive     22s                scale-handler  Scaling is performed because triggers are active
+  Normal  ScaledJobInactive   7s                 scale-handler  Scaling is not performed because triggers are not active
+

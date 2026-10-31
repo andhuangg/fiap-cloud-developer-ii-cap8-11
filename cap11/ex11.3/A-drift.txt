@@ -1,0 +1,123 @@
+########## A.1 selfHeal LIGADO ##########
+$ kubectl get application fiap-store-dev -n argocd -o jsonpath='{.spec.syncPolicy.automated}'; echo
+# 2026-10-31 18:31:44 -03
+{"prune":true,"selfHeal":true}
+
+$ kubectl scale deploy/store-api -n store-dev --replicas=1 && kubectl set image deploy/store-api store-api=nginx:1.27 -n store-dev && argocd app diff fiap-store-dev --refresh
+# 2026-10-31 18:31:44 -03
+deployment.apps/store-api scaled
+deployment.apps/store-api image updated
+
+===== apps/Deployment store-dev/store-api ======
+201c201
+<   replicas: 1
+---
+>   replicas: 4
+222c222
+<         image: nginx:1.27
+---
+>         image: ghcr.io/andhuangg/fiap-store-api:1.1
+
+$ argocd app get fiap-store-dev | sed -n '/Sync Status/,/Health/p'
+# 2026-10-31 18:31:46 -03
+Sync Status:        OutOfSync from main (3db3645)
+Health Status:      Progressing
+
+18:31:46 spec.replicas=1 image=nginx:1.27
+18:31:48 spec.replicas=4 image=ghcr.io/andhuangg/fiap-store-api:1.1
+$ argocd app get fiap-store-dev | sed -n '/Sync Status/,/Health/p'
+# 2026-10-31 18:32:08 -03
+Sync Status:        Synced to main (3db3645)
+Health Status:      Healthy
+
+$ kubectl get deploy store-api -n store-dev -o wide
+# 2026-10-31 18:32:09 -03
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                 SELECTOR
+store-api   4/4     4            4           24m   store-api    ghcr.io/andhuangg/fiap-store-api:1.1   app=store-api
+
+$ kubectl get events -n argocd --field-selector involvedObject.name=fiap-store-dev --sort-by=.lastTimestamp | tail -6
+# 2026-10-31 18:32:09 -03
+24s         Normal   OperationStarted     application/fiap-store-dev   Initiated automated sync to '3db36453ce39ccd5ed33c40321ddc81c1d4302a4'
+24s         Normal   ResourceUpdated      application/fiap-store-dev   Updated sync status: Synced -> OutOfSync
+24s         Normal   ResourceUpdated      application/fiap-store-dev   Updated health status: Healthy -> Progressing
+22s         Normal   OperationCompleted   application/fiap-store-dev   Partial sync operation to 3db36453ce39ccd5ed33c40321ddc81c1d4302a4 succeeded
+22s         Normal   ResourceUpdated      application/fiap-store-dev   Updated sync status: OutOfSync -> Synced
+13s         Normal   ResourceUpdated      application/fiap-store-dev   Updated health status: Progressing -> Healthy
+
+$ kubectl logs -n argocd statefulset/argocd-application-controller --since=10m | grep 'fiap-store-dev' | grep -E 'T21:31:4[4-9]' | grep -vE 'Reconciliation completed|Skipping auto-sync' | sed -E 's/ app-namespace=argocd app-qualified-name=argocd\/fiap-store-dev//; s/ project=fiap-store//' | cut -c1-260 | head -12
+# 2026-10-31 18:32:16 -03
+time="2026-10-31T21:31:44Z" level=info msg="Refreshing app status (controller refresh requested), level (1)" application=fiap-store-dev
+time="2026-10-31T21:31:44Z" level=info msg="Comparing app state (cluster: https://kubernetes.default.svc, namespace: store-dev)" application=argocd/fiap-store-dev
+time="2026-10-31T21:31:44Z" level=info msg="GetRepoObjs stats" application=argocd/fiap-store-dev build_options_ms=0 manifests_ms=18 plugins_ms=0 repo_ms=0 time_ms=18
+time="2026-10-31T21:31:45Z" level=info msg="Executing compare of syncResult.Revision and commitSha because manifest changed: 3db36453ce39ccd5ed33c40321ddc81c1d4302a4" application=fiap-store-dev
+time="2026-10-31T21:31:45Z" level=info msg="Initiated automated sync to '3db36453ce39ccd5ed33c40321ddc81c1d4302a4'" application=fiap-store-dev dest-namespace=store-dev dest-server="https://kubernetes.default.svc" reason=OperationStarted type=Normal
+time="2026-10-31T21:31:45Z" level=info msg="Initiated automated sync to '3db36453ce39ccd5ed33c40321ddc81c1d4302a4'" application=fiap-store-dev
+time="2026-10-31T21:31:45Z" level=info msg="Updated sync status: Synced -> OutOfSync" application=fiap-store-dev dest-namespace=store-dev dest-server="https://kubernetes.default.svc" reason=ResourceUpdated type=Normal
+time="2026-10-31T21:31:45Z" level=info msg="Updated health status: Healthy -> Progressing" application=fiap-store-dev dest-namespace=store-dev dest-server="https://kubernetes.default.svc" reason=ResourceUpdated type=Normal
+time="2026-10-31T21:31:45Z" level=info msg="Update successful" application=fiap-store-dev
+time="2026-10-31T21:31:45Z" level=info msg="Refreshing app status (controller refresh requested), level (1)" application=fiap-store-dev
+time="2026-10-31T21:31:45Z" level=info msg="Comparing app state (cluster: https://kubernetes.default.svc, namespace: store-dev)" application=argocd/fiap-store-dev
+time="2026-10-31T21:31:45Z" level=info msg="GetRepoObjs stats" application=argocd/fiap-store-dev build_options_ms=0 manifests_ms=9 plugins_ms=0 repo_ms=0 time_ms=9
+
+########## A.2 selfHeal DESLIGADO (argocd app set --sync-policy none) ##########
+$ argocd app set fiap-store-dev --sync-policy none && kubectl get application fiap-store-dev -n argocd -o jsonpath='{.spec.syncPolicy}'; echo
+# 2026-10-31 18:32:27 -03
+{"managedNamespaceMetadata":{"labels":{"pod-security.kubernetes.io/enforce":"restricted","pod-security.kubernetes.io/enforce-version":"v1.33"}},"syncOptions":["CreateNamespace=true"]}
+
+$ kubectl scale deploy/store-api -n store-dev --replicas=1 && kubectl set image deploy/store-api store-api=nginx:1.27 -n store-dev && argocd app diff fiap-store-dev --refresh
+# 2026-10-31 18:32:28 -03
+deployment.apps/store-api scaled
+deployment.apps/store-api image updated
+
+===== apps/Deployment store-dev/store-api ======
+201c201
+<   replicas: 1
+---
+>   replicas: 4
+222c222
+<         image: nginx:1.27
+---
+>         image: ghcr.io/andhuangg/fiap-store-api:1.1
+
+$ argocd app get fiap-store-dev | sed -n '/Sync Policy/,/Health/p;/GROUP/,$p'
+# 2026-10-31 18:33:29 -03
+Sync Policy:        Manual
+Sync Status:        OutOfSync from main (3db3645)
+Health Status:      Progressing
+GROUP  KIND        NAMESPACE  NAME       STATUS     HEALTH       HOOK  MESSAGE
+       Namespace              store-dev  Succeeded  Synced             namespace/store-dev serverside-applied
+apps   Deployment  store-dev  store-api  OutOfSync  Progressing        deployment.apps/store-api configured
+       Service     store-dev  store-api  Synced     Healthy            
+
+$ kubectl get deploy store-api -n store-dev -o wide; kubectl get rs -n store-dev -o wide | head -5
+# 2026-10-31 18:33:30 -03
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES       SELECTOR
+store-api   1/1     1            1           26m   store-api    nginx:1.27   app=store-api
+NAME                   DESIRED   CURRENT   READY   AGE     CONTAINERS   IMAGES                                 SELECTOR
+store-api-5b8865f66b   1         1         0       105s    store-api    nginx:1.27                             app=store-api,pod-template-hash=5b8865f66b
+store-api-7b88c88757   0         0         0       26m     store-api    ghcr.io/andhuangg/fiap-store-api:1.0   app=store-api,pod-template-hash=7b88c88757
+store-api-9c76d975b    1         1         1       5m35s   store-api    ghcr.io/andhuangg/fiap-store-api:1.1   app=store-api,pod-template-hash=9c76d975b
+
+########## CORRECAO PELO GIT: reaplica a Application como esta versionada em apps/store-dev.yaml (automated + selfHeal) ##########
+$ git -C /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-config show HEAD:apps/store-dev.yaml | grep -A3 automated
+# 2026-10-31 18:33:30 -03
+    automated:
+      prune: true        # remove do cluster o que saiu do Git
+      selfHeal: true     # desfaz alteracoes manuais (drift)
+    syncOptions:
+
+$ kubectl apply -n argocd -f /Users/huang/Downloads/cp-bara/cap11/repos/fiap-store-config/apps/store-dev.yaml
+# 2026-10-31 18:33:30 -03
+application.argoproj.io/fiap-store-dev configured
+
+$ argocd app get fiap-store-dev | sed -n '/Sync Policy/,/Health/p'
+# 2026-10-31 18:33:44 -03
+Sync Policy:        Automated (Prune)
+Sync Status:        Synced to main (3db3645)
+Health Status:      Healthy
+
+$ kubectl get deploy store-api -n store-dev -o wide
+# 2026-10-31 18:33:44 -03
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                 SELECTOR
+store-api   4/4     4            4           26m   store-api    ghcr.io/andhuangg/fiap-store-api:1.1   app=store-api
+

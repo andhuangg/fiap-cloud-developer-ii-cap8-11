@@ -1,0 +1,6 @@
+0-quebrado           rollout=  2s ate_ultimo_pod_antigo_sumir=  8s total=11232 falhas= 333 por100=  2.96 maior_sequencia_OK=7135
+a-readiness          rollout=  5s ate_ultimo_pod_antigo_sumir=  8s total=12196 falhas=   0 por100=  0.00 maior_sequencia_OK=12196
+b-prestop            rollout=  4s ate_ultimo_pod_antigo_sumir= 49s total=40352 falhas=   0 por100=  0.00 maior_sequencia_OK=40352
+c-exec               rollout=  5s ate_ultimo_pod_antigo_sumir= 32s total=29327 falhas=   0 por100=  0.00 maior_sequencia_OK=29327
+d-maxunavailable0    rollout=  7s ate_ultimo_pod_antigo_sumir= 19s total=20312 falhas=   0 por100=  0.00 maior_sequencia_OK=20312
+e-final-lifespan     rollout=  7s ate_ultimo_pod_antigo_sumir= 23s total=23658 falhas=   0 por100=  0.00 maior_sequencia_OK=23658

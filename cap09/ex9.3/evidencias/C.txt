@@ -1,0 +1,71 @@
+$ kubectl apply -f antes/C.yaml
+# 2026-10-31 17:24:23 -03
+role.rbac.authorization.k8s.io/cenario-c created
+rolebinding.rbac.authorization.k8s.io/cenario-c created
+
+$ kubectl auth can-i create deployments.apps -n store-dev --as=user.c
+# 2026-10-31 17:24:24 -03
+yes
+
+$ kubectl auth can-i update deployments.apps -n store-dev --as=user.c
+# 2026-10-31 17:24:25 -03
+yes
+
+$ kubectl apply -f deploy-v2.yaml --as=user.c
+# 2026-10-31 17:24:25 -03
+Error from server (Forbidden): error when retrieving current configuration of:
+Resource: "apps/v1, Resource=deployments", GroupVersionKind: "apps/v1, Kind=Deployment"
+Name: "app-teste", Namespace: "store-dev"
+from server for: "deploy-v2.yaml": deployments.apps "app-teste" is forbidden: User "user.c" cannot get resource "deployments" in API group "apps" in the namespace "store-dev"
+
+### DESCOBRINDO OS VERBOS: requisicoes HTTP reais do apply (rodado como admin, -v=8)
+$ kubectl apply -f deploy-v2.yaml -v=8 2>&1 | grep -E 'Request Body|"Response"|GET https|PATCH https|POST https|PUT https|verb=' | grep -E 'GET|PATCH|POST|PUT|verb' | sed -E 's/^I[0-9]+ [0-9:.]+ +[0-9]+ [a-z_]+\.go:[0-9]+\] //' | cut -c1-220 | head -12
+# 2026-10-31 17:24:25 -03
+"Request" verb="GET" url="https://127.0.0.1:52314/openapi/v3?timeout=32s" headers=<
+"Request" verb="GET" url="https://127.0.0.1:52314/openapi/v3/apis/apps/v1?hash=1410496BD70FE59A56247565C27893F2BDABE2C00FC4ADC21B5FC7738051D2BCE578551818140C3BFE747DF4E139E63B740446A74710FB02E6ED20EC04F66CC1&timeout=32s"
+"Request" verb="GET" url="https://127.0.0.1:52314/api?timeout=32s" headers=<
+"Request" verb="GET" url="https://127.0.0.1:52314/apis?timeout=32s" headers=<
+"Request" verb="GET" url="https://127.0.0.1:52314/apis/apps/v1/namespaces/store-dev/deployments/app-teste" headers=<
+"Request" verb="PATCH" url="https://127.0.0.1:52314/apis/apps/v1/namespaces/store-dev/deployments/app-teste?fieldManager=kubectl-client-side-apply&fieldValidation=Strict" headers=<
+
+### CORRECAO: adicionar apenas get e patch
+$ diff -u antes/C.yaml depois/C.yaml
+# 2026-10-31 17:24:25 -03
+--- antes/C.yaml	2026-10-31 17:23:24
++++ depois/C.yaml	2026-10-31 17:23:24
+@@ -6,7 +6,7 @@
+ rules:
+   - apiGroups: ["apps"]
+     resources: ["deployments"]
+-    verbs: ["create","update"]
++    verbs: ["create","update","get","patch"]
+ ---
+ apiVersion: rbac.authorization.k8s.io/v1
+ kind: RoleBinding
+
+$ kubectl apply -f depois/C.yaml
+# 2026-10-31 17:24:25 -03
+role.rbac.authorization.k8s.io/cenario-c configured
+rolebinding.rbac.authorization.k8s.io/cenario-c unchanged
+
+$ kubectl apply -f deploy-v2.yaml --as=user.c
+# 2026-10-31 17:24:26 -03
+deployment.apps/app-teste configured
+
+$ kubectl get deploy app-teste -n store-dev -o jsonpath='{.spec.replicas}'; echo
+# 2026-10-31 17:24:26 -03
+2
+
+### PERMISSAO ADJACENTE continua negada
+$ kubectl auth can-i delete deployments.apps -n store-dev --as=user.c
+# 2026-10-31 17:24:26 -03
+no
+
+$ kubectl auth can-i list deployments.apps -n store-dev --as=user.c
+# 2026-10-31 17:24:26 -03
+no
+
+$ kubectl delete deploy app-teste -n store-dev --as=user.c
+# 2026-10-31 17:24:26 -03
+Error from server (Forbidden): deployments.apps "app-teste" is forbidden: User "user.c" cannot delete resource "deployments" in API group "apps" in the namespace "store-dev"
+

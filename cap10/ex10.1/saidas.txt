@@ -1,0 +1,75 @@
+$ kubectl apply -f namespaces.yaml
+# 2026-10-31 17:27:52 -03
+namespace/store-seguro created
+namespace/store-legado created
+
+$ kubectl get ns store-seguro --show-labels
+# 2026-10-31 17:27:52 -03
+NAME           STATUS   AGE   LABELS
+store-seguro   Active   0s    kubernetes.io/metadata.name=store-seguro,pod-security.kubernetes.io/audit-version=v1.33,pod-security.kubernetes.io/audit=restricted,pod-security.kubernetes.io/enforce-version=v1.33,pod-security.kubernetes.io/enforce=restricted,pod-security.kubernetes.io/warn-version=v1.33,pod-security.kubernetes.io/warn=restricted
+
+$ kubectl get ns store-legado --show-labels
+# 2026-10-31 17:27:52 -03
+NAME           STATUS   AGE   LABELS
+store-legado   Active   0s    kubernetes.io/metadata.name=store-legado,pod-security.kubernetes.io/enforce-version=v1.33,pod-security.kubernetes.io/enforce=baseline
+
+$ kubectl apply -f store-api-restrito.yaml
+# 2026-10-31 17:27:52 -03
+deployment.apps/store-api created
+
+$ kubectl rollout status deploy/store-api -n store-seguro --timeout=120s
+# 2026-10-31 17:27:52 -03
+Waiting for deployment "store-api" rollout to finish: 0 of 2 updated replicas are available...
+Waiting for deployment "store-api" rollout to finish: 1 of 2 updated replicas are available...
+deployment "store-api" successfully rolled out
+
+$ kubectl get pods -n store-seguro -o wide
+# 2026-10-31 17:28:05 -03
+NAME                        READY   STATUS    RESTARTS   AGE   IP            NODE      NOMINATED NODE   READINESS GATES
+store-api-77c7db65f-nhb4b   1/1     Running   0          13s   10.244.0.64   cp-bara   <none>           <none>
+store-api-77c7db65f-xwwj4   1/1     Running   0          13s   10.244.0.63   cp-bara   <none>           <none>
+
+$ kubectl exec -n store-seguro deploy/store-api -- id
+# 2026-10-31 17:28:05 -03
+uid=65532 gid=65532 groups=65532
+
+$ kubectl exec -n store-seguro deploy/store-api -- sh -c 'touch /app/x' ; echo exit=$?
+# 2026-10-31 17:28:05 -03
+touch: cannot touch '/app/x': Read-only file system
+command terminated with exit code 1
+exit=1
+
+$ kubectl exec -n store-seguro deploy/store-api -- sh -c 'touch /tmp/ok && ls -l /tmp/ok'
+# 2026-10-31 17:28:05 -03
+-rw-r--r-- 1 65532 65532 0 Oct 31 20:28 /tmp/ok
+
+$ kubectl exec -n store-seguro deploy/store-api -- sh -c 'grep -E "^(CapEff|NoNewPrivs|Seccomp):" /proc/1/status'
+# 2026-10-31 17:28:05 -03
+CapEff:	0000000000000000
+NoNewPrivs:	1
+Seccomp:	2
+
+########## Pod privilegiado no namespace RESTRICTED ##########
+$ kubectl apply -f pod-privilegiado.yaml -n store-seguro
+# 2026-10-31 17:28:06 -03
+Error from server (Forbidden): error when creating "pod-privilegiado.yaml": pods "pod-privilegiado" is forbidden: violates PodSecurity "restricted:v1.33": privileged (container "root" must not set securityContext.privileged=true), allowPrivilegeEscalation != false (container "root" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "root" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "root" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "root" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+
+########## Mesmo Pod no namespace BASELINE ##########
+$ kubectl apply -f pod-privilegiado.yaml -n store-legado
+# 2026-10-31 17:28:06 -03
+Error from server (Forbidden): error when creating "pod-privilegiado.yaml": pods "pod-privilegiado" is forbidden: violates PodSecurity "baseline:v1.33": privileged (container "root" must not set securityContext.privileged=true)
+
+########## Controle: o mesmo Pod SEM privileged no baseline (roda como root, permitido pelo baseline) ##########
+$ sed 's/privileged: true/privileged: false/; s/name: pod-privilegiado/name: pod-root-sem-privilegio/' pod-privilegiado.yaml | kubectl apply -n store-legado -f -
+# 2026-10-31 17:28:06 -03
+pod/pod-root-sem-privilegio created
+
+$ kubectl get pods -n store-legado
+# 2026-10-31 17:28:06 -03
+NAME                      READY   STATUS              RESTARTS   AGE
+pod-root-sem-privilegio   0/1     ContainerCreating   0          0s
+
+$ sed 's/privileged: true/privileged: false/; s/name: pod-privilegiado/name: pod-root-sem-privilegio/' pod-privilegiado.yaml | kubectl apply -n store-seguro -f -
+# 2026-10-31 17:28:06 -03
+Error from server (Forbidden): error when creating "STDIN": pods "pod-root-sem-privilegio" is forbidden: violates PodSecurity "restricted:v1.33": allowPrivilegeEscalation != false (container "root" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "root" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "root" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "root" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+

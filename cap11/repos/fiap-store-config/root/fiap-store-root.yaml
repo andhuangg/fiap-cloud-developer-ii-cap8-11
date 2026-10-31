@@ -1,0 +1,21 @@
+# App-of-Apps: o UNICO objeto aplicado a mao. Ele aponta para apps/, que contem todas as outras
+# Applications e AppProjects. Ordem garantida por sync-wave:
+#   -3 AppProjects  ->  -2 Kyverno e Knative  ->  -1 namespaces + policies  ->  0 dev/prod  ->  1 serverless
+# Uso: kubectl apply -f root/fiap-store-root.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fiap-store-root
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/andhuangg/fiap-store-config.git
+    targetRevision: main
+    path: apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}

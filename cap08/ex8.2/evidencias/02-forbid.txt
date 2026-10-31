@@ -1,0 +1,401 @@
+$ kubectl apply -f sincroniza-cronjob-forbid.yaml
+# 2026-10-31 17:24:13 -03
+cronjob.batch/sincroniza-catalogo configured
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:24:13 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        4m13s           12m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       9m13s
+job.batch/sincroniza-catalogo-29891300   Running    0/1           4m13s      4m13s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          9m13s
+pod/sincroniza-catalogo-29891300-6v7fm   1/1     Running     0          4m13s
+jobs ativos (.status.active): sincroniza-catalogo-29891300
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:24:43 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        4m44s           12m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       9m44s
+job.batch/sincroniza-catalogo-29891300   Running    0/1           4m44s      4m44s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          9m44s
+pod/sincroniza-catalogo-29891300-6v7fm   1/1     Running     0          4m44s
+jobs ativos (.status.active): sincroniza-catalogo-29891300
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:25:14 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        5m15s           13m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       10m
+job.batch/sincroniza-catalogo-29891300   Running    0/1           5m15s      5m15s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          10m
+pod/sincroniza-catalogo-29891300-6v7fm   1/1     Running     0          5m15s
+jobs ativos (.status.active): sincroniza-catalogo-29891300
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:25:46 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        5m46s           13m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       10m
+job.batch/sincroniza-catalogo-29891300   Running    0/1           5m46s      5m46s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          10m
+pod/sincroniza-catalogo-29891300-6v7fm   1/1     Running     0          5m46s
+jobs ativos (.status.active): sincroniza-catalogo-29891300
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:26:16 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        76s             14m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       11m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       6m16s
+job.batch/sincroniza-catalogo-29891305   Running    0/1           13s        13s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          11m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          6m16s
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          13s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:26:46 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        106s            14m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       11m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       6m46s
+job.batch/sincroniza-catalogo-29891305   Running    0/1           43s        43s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          11m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          6m46s
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          43s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:27:16 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        2m17s           15m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       12m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       7m17s
+job.batch/sincroniza-catalogo-29891305   Running    0/1           74s        74s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          12m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          7m17s
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          74s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:27:47 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        2m47s           15m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       12m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       7m47s
+job.batch/sincroniza-catalogo-29891305   Running    0/1           104s       104s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          12m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          7m47s
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          104s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:28:17 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        3m17s           16m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       13m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       8m17s
+job.batch/sincroniza-catalogo-29891305   Running    0/1           2m14s      2m14s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          13m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          8m17s
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          2m14s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:28:47 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        3m48s           16m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       13m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       8m48s
+job.batch/sincroniza-catalogo-29891305   Running    0/1           2m45s      2m45s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          13m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          8m48s
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          2m45s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:29:18 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        4m20s           17m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       14m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       9m20s
+job.batch/sincroniza-catalogo-29891305   Running    0/1           3m17s      3m17s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          14m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          9m20s
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          3m17s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:29:50 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        4m53s           17m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       14m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       9m53s
+job.batch/sincroniza-catalogo-29891305   Running    0/1           3m50s      3m50s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          14m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          9m53s
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          3m50s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:30:25 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        5m27s           18m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       15m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       10m
+job.batch/sincroniza-catalogo-29891305   Running    0/1           4m24s      4m24s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          15m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          10m
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          4m24s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:30:57 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        5m57s           18m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       15m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       10m
+job.batch/sincroniza-catalogo-29891305   Running    0/1           4m54s      4m54s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          15m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          10m
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          4m54s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:31:27 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        6m28s           19m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       16m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       11m
+job.batch/sincroniza-catalogo-29891305   Running    0/1           5m25s      5m25s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          16m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          11m
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          5m25s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:31:58 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        7m              19m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891295   Complete   1/1           6m3s       17m
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       12m
+job.batch/sincroniza-catalogo-29891305   Running    0/1           5m57s      5m57s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891295-bxdv9   0/1     Completed   0          17m
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          12m
+pod/sincroniza-catalogo-29891305-wmmt2   1/1     Running     0          5m57s
+jobs ativos (.status.active): sincroniza-catalogo-29891305
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:32:30 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     0        7m30s           20m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       12m
+job.batch/sincroniza-catalogo-29891305   Complete   1/1           6m4s       6m27s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          12m
+pod/sincroniza-catalogo-29891305-wmmt2   0/1     Completed   0          6m27s
+jobs ativos (.status.active): 
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:33:00 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     0        8m1s            20m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       13m
+job.batch/sincroniza-catalogo-29891305   Complete   1/1           6m4s       6m58s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          13m
+pod/sincroniza-catalogo-29891305-wmmt2   0/1     Completed   0          6m58s
+jobs ativos (.status.active): 
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:33:31 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     0        8m31s           21m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       13m
+job.batch/sincroniza-catalogo-29891305   Complete   1/1           6m4s       7m28s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          13m
+pod/sincroniza-catalogo-29891305-wmmt2   0/1     Completed   0          7m28s
+jobs ativos (.status.active): 
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:34:01 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     0        9m1s            21m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       14m
+job.batch/sincroniza-catalogo-29891305   Complete   1/1           6m4s       7m58s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          14m
+pod/sincroniza-catalogo-29891305-wmmt2   0/1     Completed   0          7m58s
+jobs ativos (.status.active): 
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:34:31 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     0        9m32s           22m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       14m
+job.batch/sincroniza-catalogo-29891305   Complete   1/1           6m4s       8m29s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          14m
+pod/sincroniza-catalogo-29891305-wmmt2   0/1     Completed   0          8m29s
+jobs ativos (.status.active): 
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:35:02 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        2s              22m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       15m
+job.batch/sincroniza-catalogo-29891305   Complete   1/1           6m4s       8m59s
+job.batch/sincroniza-catalogo-29891315   Running    0/1           2s         2s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          15m
+pod/sincroniza-catalogo-29891305-wmmt2   0/1     Completed   0          8m59s
+pod/sincroniza-catalogo-29891315-fd9f9   1/1     Running     0          2s
+jobs ativos (.status.active): sincroniza-catalogo-29891315
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:35:33 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        33s             23m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       15m
+job.batch/sincroniza-catalogo-29891305   Complete   1/1           6m4s       9m30s
+job.batch/sincroniza-catalogo-29891315   Running    0/1           33s        33s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          15m
+pod/sincroniza-catalogo-29891305-wmmt2   0/1     Completed   0          9m30s
+pod/sincroniza-catalogo-29891315-fd9f9   1/1     Running     0          33s
+jobs ativos (.status.active): sincroniza-catalogo-29891315
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:36:03 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        63s             23m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       16m
+job.batch/sincroniza-catalogo-29891305   Complete   1/1           6m4s       10m
+job.batch/sincroniza-catalogo-29891315   Running    0/1           63s        63s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          16m
+pod/sincroniza-catalogo-29891305-wmmt2   0/1     Completed   0          10m
+pod/sincroniza-catalogo-29891315-fd9f9   1/1     Running     0          63s
+jobs ativos (.status.active): sincroniza-catalogo-29891315
+
+$ kubectl get cronjob,jobs,pods -n store-dev | grep -E 'NAME|sincroniza'; echo -n 'jobs ativos (.status.active): '; kubectl get cronjob sincroniza-catalogo -n store-dev -o jsonpath='{.status.active[*].name}'; echo
+# 2026-10-31 17:36:33 -03
+NAME                                SCHEDULE      TIMEZONE            SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/sincroniza-catalogo   */5 * * * *   America/Sao_Paulo   False     1        93s             24m
+NAME                                     STATUS     COMPLETIONS   DURATION   AGE
+job.batch/sincroniza-catalogo-29891300   Complete   1/1           6m3s       16m
+job.batch/sincroniza-catalogo-29891305   Complete   1/1           6m4s       10m
+job.batch/sincroniza-catalogo-29891315   Running    0/1           93s        93s
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/sincroniza-catalogo-29891300-6v7fm   0/1     Completed   0          16m
+pod/sincroniza-catalogo-29891305-wmmt2   0/1     Completed   0          10m
+pod/sincroniza-catalogo-29891315-fd9f9   1/1     Running     0          93s
+jobs ativos (.status.active): sincroniza-catalogo-29891315
+
+$ kubectl describe cronjob sincroniza-catalogo -n store-dev
+# 2026-10-31 17:36:33 -03
+Name:                          sincroniza-catalogo
+Namespace:                     store-dev
+Labels:                        <none>
+Annotations:                   <none>
+Schedule:                      */5 * * * *
+Concurrency Policy:            Forbid
+Suspend:                       False
+Successful Job History Limit:  2
+Failed Job History Limit:      1
+Starting Deadline Seconds:     120s
+Selector:                      <unset>
+Parallelism:                   <unset>
+Completions:                   <unset>
+Pod Template:
+  Labels:  <none>
+  Containers:
+   sync:
+    Image:      busybox:1.36
+    Port:       <none>
+    Host Port:  <none>
+    Command:
+      sh
+      -c
+      echo inicio $(date); sleep 360; echo fim $(date)
+    Environment:
+      API_TOKEN:  <set to the key 'API_TOKEN' in secret 'catalogo-secret'>  Optional: false
+    Mounts:
+      /etc/catalogo from token (ro)
+  Volumes:
+   token:
+    Type:            Secret (a volume populated by a Secret)
+    SecretName:      catalogo-secret
+    Optional:        false
+  Node-Selectors:    <none>
+  Tolerations:       <none>
+Last Schedule Time:  Sat, 31 Oct 2026 17:35:00 -0300
+Active Jobs:         sincroniza-catalogo-29891315
+Events:
+  Type    Reason            Age                    From                Message
+  ----    ------            ----                   ----                -------
+  Normal  SuccessfulCreate  21m                    cronjob-controller  Created job sincroniza-catalogo-29891295
+  Normal  SuccessfulCreate  16m                    cronjob-controller  Created job sincroniza-catalogo-29891300
+  Normal  SawCompletedJob   15m                    cronjob-controller  Saw completed job: sincroniza-catalogo-29891295, condition: Complete
+  Normal  SawCompletedJob   10m                    cronjob-controller  Saw completed job: sincroniza-catalogo-29891300, condition: Complete
+  Normal  SuccessfulCreate  10m                    cronjob-controller  Created job sincroniza-catalogo-29891305
+  Normal  JobAlreadyActive  6m33s (x4 over 11m)    cronjob-controller  Not starting job because prior execution is running and concurrency policy is Forbid
+  Normal  SuccessfulDelete  4m26s                  cronjob-controller  Deleted job sincroniza-catalogo-29891295
+  Normal  SawCompletedJob   4m26s (x2 over 4m26s)  cronjob-controller  Saw completed job: sincroniza-catalogo-29891305, condition: Complete
+  Normal  SuccessfulCreate  93s                    cronjob-controller  Created job sincroniza-catalogo-29891315
+
+$ kubectl get events -n store-dev --field-selector involvedObject.name=sincroniza-catalogo --sort-by=.lastTimestamp
+# 2026-10-31 17:36:33 -03
+LAST SEEN   TYPE     REASON             OBJECT                        MESSAGE
+21m         Normal   SuccessfulCreate   cronjob/sincroniza-catalogo   Created job sincroniza-catalogo-29891295
+16m         Normal   SuccessfulCreate   cronjob/sincroniza-catalogo   Created job sincroniza-catalogo-29891300
+15m         Normal   SawCompletedJob    cronjob/sincroniza-catalogo   Saw completed job: sincroniza-catalogo-29891295, condition: Complete
+10m         Normal   SawCompletedJob    cronjob/sincroniza-catalogo   Saw completed job: sincroniza-catalogo-29891300, condition: Complete
+10m         Normal   SuccessfulCreate   cronjob/sincroniza-catalogo   Created job sincroniza-catalogo-29891305
+6m33s       Normal   JobAlreadyActive   cronjob/sincroniza-catalogo   Not starting job because prior execution is running and concurrency policy is Forbid
+4m26s       Normal   SuccessfulDelete   cronjob/sincroniza-catalogo   Deleted job sincroniza-catalogo-29891295
+4m26s       Normal   SawCompletedJob    cronjob/sincroniza-catalogo   Saw completed job: sincroniza-catalogo-29891305, condition: Complete
+93s         Normal   SuccessfulCreate   cronjob/sincroniza-catalogo   Created job sincroniza-catalogo-29891315
+

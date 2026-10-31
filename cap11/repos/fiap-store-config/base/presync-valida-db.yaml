@@ -1,0 +1,39 @@
+# Hook PreSync: roda ANTES de cada sync. Se falhar (exit != 0), o sync e abortado.
+# Didatico: testa a conectividade com o store-db; no laboratorio o banco nao existe, entao so registra.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: valida-store-db
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: valida
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "PreSync: validando conectividade com store-db:5432 no namespace $POD_NS"
+              if nc -z -w 3 store-db 5432; then echo "store-db OK"; else echo "store-db nao encontrado (lab sem banco): validacao didatica, seguindo"; fi
+              echo "PreSync concluido"
+          env:
+            - name: POD_NS
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {memory: 32Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}

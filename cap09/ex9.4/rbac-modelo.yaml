@@ -1,0 +1,265 @@
+# =============================================================================
+# Modelo RBAC da FIAP Store: 4 perfis (grupos) x 2 namespaces (store-dev, store-prod)
+#
+# Decisoes gerais
+#  - Permissoes sao dadas a GRUPOS (fiap:dev, fiap:qa, fiap:sre, fiap:auditor), nunca a
+#    usuarios: entrar/sair de um perfil e mudar o O= do certificado (ou o grupo no IdP),
+#    sem tocar no RBAC.
+#  - As regras ficam em ClusterRoles "molde" e sao aplicadas por namespace com RoleBindings.
+#    Um ClusterRole usado via RoleBinding so vale naquele namespace: reaproveita a regra
+#    sem ampliar o escopo.
+#  - Nenhum curinga (asterisco) em verbs ou resources: tudo explicito, auditavel e previsivel quando o
+#    cluster ganhar recursos novos (CRDs).
+#  - Unico ClusterRoleBinding: leitura cluster-wide do SRE (nodes, PVs, storageclasses,
+#    namespaces), que sao recursos sem namespace e nao podem ser concedidos por RoleBinding.
+#  - Ninguem recebe escrita em roles/rolebindings: quem edita RBAC consegue se
+#    autoconceder qualquer coisa (o escalation prevention so limita ao que o proprio
+#    usuario ja tem). RBAC muda via GitOps/admin do cluster.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# ClusterRole molde 1: controle total de WORKLOADS (sem Secrets, PVC, StatefulSet,
+# DaemonSet). Usado por fiap:dev em store-dev.
+# -----------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fiap-workload-admin
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create", "get"]          # get: exec via WebSocket (kubectl >= 1.30) faz upgrade em GET
+  - apiGroups: [""]
+    resources: ["endpoints", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+---
+# -----------------------------------------------------------------------------
+# ClusterRole molde 2: LEITURA de workloads, sem Secrets e sem pods/exec.
+# Usado por fiap:dev em store-prod e por fiap:qa nos dois namespaces.
+# Diferenca para o "view" padrao: lista fechada (nao cresce por agregacao).
+# -----------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fiap-workload-reader
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "endpoints", "configmaps", "events", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+---
+# -----------------------------------------------------------------------------
+# ClusterRole molde 3: rodar suites de teste como Job (criar e apagar Jobs).
+# Usado por fiap:qa somente em store-dev. A leitura vem do fiap-workload-reader.
+# -----------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fiap-job-runner
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "delete"]
+---
+# -----------------------------------------------------------------------------
+# ClusterRole molde 4: exec em Pods. Separado para poder ser dado a fiap:qa
+# apenas em store-dev, sem nenhuma outra escrita.
+# -----------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fiap-pod-exec
+rules:
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create", "get"]
+---
+# -----------------------------------------------------------------------------
+# ClusterRole molde 5: controle total do NAMESPACE para SRE, incluindo Secrets,
+# PVCs, StatefulSets e DaemonSets. Nao inclui roles/rolebindings (ver topo).
+# Usado por fiap:sre nos dois namespaces via RoleBinding (NAO e cluster-admin).
+# -----------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fiap-sre-namespace-admin
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims", "serviceaccounts", "endpoints", "resourcequotas", "limitranges"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["pods/log", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/exec", "pods/portforward"]
+    verbs: ["create", "get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale", "replicasets", "statefulsets", "statefulsets/scale", "daemonsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies", "ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+---
+# -----------------------------------------------------------------------------
+# ClusterRole 6: leitura de recursos SEM namespace, para o SRE diagnosticar
+# capacidade e armazenamento. So leitura, nada de escrita cluster-wide.
+# -----------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fiap-sre-cluster-reader
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "persistentvolumes", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+---
+# -----------------------------------------------------------------------------
+# ClusterRole molde 7: AUDITOR. Leitura de "tudo" no namespace, incluindo objetos
+# RBAC (roles/rolebindings), e NUNCA secrets. Somente get/list/watch.
+# Por que nao o "view" padrao: ver MATRIZ.md (secao final).
+# -----------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fiap-auditor
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "endpoints", "configmaps", "events", "persistentvolumeclaims", "serviceaccounts", "resourcequotas", "limitranges", "replicationcontrollers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets", "controllerrevisions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies", "ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch"]
+# =============================================================================
+# BINDINGS
+# =============================================================================
+---
+# fiap:dev -> controle total de workloads em store-dev
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: fiap-dev-workload-admin, namespace: store-dev}
+subjects: [{kind: Group, name: "fiap:dev", apiGroup: rbac.authorization.k8s.io}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: fiap-workload-admin}
+---
+# fiap:dev -> so leitura em store-prod (sem secrets, sem exec)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: fiap-dev-reader, namespace: store-prod}
+subjects: [{kind: Group, name: "fiap:dev", apiGroup: rbac.authorization.k8s.io}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: fiap-workload-reader}
+---
+# fiap:qa -> leitura em store-dev
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: fiap-qa-reader, namespace: store-dev}
+subjects: [{kind: Group, name: "fiap:qa", apiGroup: rbac.authorization.k8s.io}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: fiap-workload-reader}
+---
+# fiap:qa -> leitura em store-prod
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: fiap-qa-reader, namespace: store-prod}
+subjects: [{kind: Group, name: "fiap:qa", apiGroup: rbac.authorization.k8s.io}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: fiap-workload-reader}
+---
+# fiap:qa -> criar/apagar Jobs de teste somente em store-dev
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: fiap-qa-job-runner, namespace: store-dev}
+subjects: [{kind: Group, name: "fiap:qa", apiGroup: rbac.authorization.k8s.io}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: fiap-job-runner}
+---
+# fiap:qa -> exec somente em store-dev
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: fiap-qa-pod-exec, namespace: store-dev}
+subjects: [{kind: Group, name: "fiap:qa", apiGroup: rbac.authorization.k8s.io}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: fiap-pod-exec}
+---
+# fiap:sre -> controle total em store-dev
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: fiap-sre-admin, namespace: store-dev}
+subjects: [{kind: Group, name: "fiap:sre", apiGroup: rbac.authorization.k8s.io}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: fiap-sre-namespace-admin}
+---
+# fiap:sre -> controle total em store-prod
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: fiap-sre-admin, namespace: store-prod}
+subjects: [{kind: Group, name: "fiap:sre", apiGroup: rbac.authorization.k8s.io}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: fiap-sre-namespace-admin}
+---
+# fiap:sre -> UNICO ClusterRoleBinding do modelo: recursos sem namespace precisam de
+# binding cluster-wide. O ClusterRole e so leitura, entao o SRE NAO vira cluster-admin.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: fiap-sre-cluster-reader}
+subjects: [{kind: Group, name: "fiap:sre", apiGroup: rbac.authorization.k8s.io}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: fiap-sre-cluster-reader}
+---
+# fiap:auditor -> leitura de tudo (inclusive RBAC, exceto secrets) em store-dev
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: fiap-auditor, namespace: store-dev}
+subjects: [{kind: Group, name: "fiap:auditor", apiGroup: rbac.authorization.k8s.io}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: fiap-auditor}
+---
+# fiap:auditor -> idem em store-prod
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: fiap-auditor, namespace: store-prod}
+subjects: [{kind: Group, name: "fiap:auditor", apiGroup: rbac.authorization.k8s.io}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: fiap-auditor}

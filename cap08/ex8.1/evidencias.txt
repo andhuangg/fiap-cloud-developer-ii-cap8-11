@@ -1,0 +1,161 @@
+$ kubectl apply -f job-paralelo.yaml
+# 2026-10-31 17:10:41 -03
+job.batch/processa-pedidos created
+
+$ kubectl get job,pods -n store-dev -l job-name=processa-pedidos
+# 2026-10-31 17:10:45 -03
+NAME                         STATUS    COMPLETIONS   DURATION   AGE
+job.batch/processa-pedidos   Running   0/10          4s         4s
+
+NAME                         READY   STATUS    RESTARTS   AGE
+pod/processa-pedidos-c7jdq   1/1     Running   0          4s
+pod/processa-pedidos-fbgx2   1/1     Running   0          4s
+pod/processa-pedidos-zn2q6   1/1     Running   0          4s
+
+$ kubectl get job,pods -n store-dev -l job-name=processa-pedidos
+# 2026-10-31 17:10:49 -03
+NAME                         STATUS    COMPLETIONS   DURATION   AGE
+job.batch/processa-pedidos   Running   1/10          9s         9s
+
+NAME                         READY   STATUS      RESTARTS   AGE
+pod/processa-pedidos-c7jdq   1/1     Running     0          9s
+pod/processa-pedidos-fbgx2   1/1     Running     0          9s
+pod/processa-pedidos-qj698   1/1     Running     0          2s
+pod/processa-pedidos-zn2q6   0/1     Completed   0          9s
+
+$ kubectl get job,pods -n store-dev -l job-name=processa-pedidos
+# 2026-10-31 17:10:54 -03
+NAME                         STATUS    COMPLETIONS   DURATION   AGE
+job.batch/processa-pedidos   Running   3/10          13s        13s
+
+NAME                         READY   STATUS      RESTARTS   AGE
+pod/processa-pedidos-425dn   1/1     Running     0          2s
+pod/processa-pedidos-4jwld   1/1     Running     0          2s
+pod/processa-pedidos-c7jdq   0/1     Completed   0          13s
+pod/processa-pedidos-fbgx2   0/1     Completed   0          13s
+pod/processa-pedidos-qj698   1/1     Running     0          6s
+pod/processa-pedidos-zn2q6   0/1     Completed   0          13s
+
+$ kubectl get job,pods -n store-dev -l job-name=processa-pedidos
+# 2026-10-31 17:10:58 -03
+NAME                         STATUS    COMPLETIONS   DURATION   AGE
+job.batch/processa-pedidos   Running   5/10          17s        17s
+
+NAME                         READY   STATUS              RESTARTS   AGE
+pod/processa-pedidos-2q9f5   1/1     Running             0          1s
+pod/processa-pedidos-425dn   0/1     Completed           0          6s
+pod/processa-pedidos-4jwld   0/1     Completed           0          6s
+pod/processa-pedidos-c7jdq   0/1     Completed           0          17s
+pod/processa-pedidos-fbgx2   0/1     Completed           0          17s
+pod/processa-pedidos-qj698   0/1     Completed           0          10s
+pod/processa-pedidos-x945l   0/1     ContainerCreating   0          0s
+pod/processa-pedidos-zn2q6   0/1     Completed           0          17s
+
+$ kubectl get job,pods -n store-dev -l job-name=processa-pedidos
+# 2026-10-31 17:11:02 -03
+NAME                         STATUS    COMPLETIONS   DURATION   AGE
+job.batch/processa-pedidos   Running   6/10          21s        21s
+
+NAME                         READY   STATUS      RESTARTS   AGE
+pod/processa-pedidos-2q9f5   1/1     Running     0          5s
+pod/processa-pedidos-425dn   0/1     Completed   0          10s
+pod/processa-pedidos-4jwld   0/1     Completed   0          10s
+pod/processa-pedidos-c7jdq   0/1     Completed   0          21s
+pod/processa-pedidos-fbgx2   0/1     Completed   0          21s
+pod/processa-pedidos-qj698   0/1     Completed   0          14s
+pod/processa-pedidos-spnqc   1/1     Running     0          3s
+pod/processa-pedidos-x945l   0/1     Completed   0          4s
+pod/processa-pedidos-zn2q6   0/1     Completed   0          21s
+
+$ kubectl get job,pods -n store-dev -l job-name=processa-pedidos
+# 2026-10-31 17:11:06 -03
+NAME                         STATUS    COMPLETIONS   DURATION   AGE
+job.batch/processa-pedidos   Running   8/10          25s        25s
+
+NAME                         READY   STATUS      RESTARTS   AGE
+pod/processa-pedidos-2q9f5   0/1     Completed   0          9s
+pod/processa-pedidos-425dn   0/1     Completed   0          14s
+pod/processa-pedidos-4jwld   0/1     Completed   0          14s
+pod/processa-pedidos-c7jdq   0/1     Completed   0          25s
+pod/processa-pedidos-fbgx2   0/1     Completed   0          25s
+pod/processa-pedidos-hskp4   1/1     Running     0          2s
+pod/processa-pedidos-qj698   0/1     Completed   0          18s
+pod/processa-pedidos-spnqc   0/1     Completed   0          7s
+pod/processa-pedidos-x945l   0/1     Completed   0          8s
+pod/processa-pedidos-zn2q6   0/1     Completed   0          25s
+
+$ kubectl wait --for=condition=complete job/processa-pedidos -n store-dev --timeout=180s
+# 2026-10-31 17:11:06 -03
+job.batch/processa-pedidos condition met
+
+$ kubectl get job,pods -n store-dev -l job-name=processa-pedidos
+# 2026-10-31 17:11:12 -03
+NAME                         STATUS     COMPLETIONS   DURATION   AGE
+job.batch/processa-pedidos   Complete   10/10         31s        31s
+
+NAME                         READY   STATUS      RESTARTS   AGE
+pod/processa-pedidos-2q9f5   0/1     Completed   0          15s
+pod/processa-pedidos-425dn   0/1     Completed   0          20s
+pod/processa-pedidos-4jwld   0/1     Completed   0          20s
+pod/processa-pedidos-c7jdq   0/1     Completed   0          31s
+pod/processa-pedidos-fbgx2   0/1     Completed   0          31s
+pod/processa-pedidos-hskp4   0/1     Completed   0          8s
+pod/processa-pedidos-qj698   0/1     Completed   0          24s
+pod/processa-pedidos-spnqc   0/1     Completed   0          13s
+pod/processa-pedidos-x945l   0/1     Completed   0          14s
+pod/processa-pedidos-zn2q6   0/1     Completed   0          31s
+
+$ kubectl logs -l job-name=processa-pedidos -n store-dev --prefix --tail=1
+# 2026-10-31 17:11:19 -03
+[pod/processa-pedidos-c7jdq/worker] LOTE OK processa-pedidos-c7jdq
+[pod/processa-pedidos-fbgx2/worker] LOTE OK processa-pedidos-fbgx2
+[pod/processa-pedidos-x945l/worker] LOTE OK processa-pedidos-x945l
+[pod/processa-pedidos-zn2q6/worker] LOTE OK processa-pedidos-zn2q6
+[pod/processa-pedidos-425dn/worker] LOTE OK processa-pedidos-425dn
+[pod/processa-pedidos-hskp4/worker] LOTE OK processa-pedidos-hskp4
+[pod/processa-pedidos-qj698/worker] LOTE OK processa-pedidos-qj698
+[pod/processa-pedidos-spnqc/worker] LOTE OK processa-pedidos-spnqc
+[pod/processa-pedidos-2q9f5/worker] LOTE OK processa-pedidos-2q9f5
+[pod/processa-pedidos-4jwld/worker] LOTE OK processa-pedidos-4jwld
+
+$ kubectl logs -l job-name=processa-pedidos -n store-dev --tail=1 | grep -c 'LOTE OK'
+# 2026-10-31 17:11:19 -03
+10
+
+$ kubectl apply -f job-indexed.yaml
+# 2026-10-31 17:11:20 -03
+job.batch/processa-particoes created
+
+$ kubectl wait --for=condition=complete job/processa-particoes -n store-dev --timeout=120s
+# 2026-10-31 17:11:20 -03
+job.batch/processa-particoes condition met
+
+$ kubectl get job,pods -n store-dev -l job-name=processa-particoes -L batch.kubernetes.io/job-completion-index
+# 2026-10-31 17:11:23 -03
+NAME                           STATUS     COMPLETIONS   DURATION   AGE   JOB-COMPLETION-INDEX
+job.batch/processa-particoes   Complete   4/4           3s         3s    
+
+NAME                             READY   STATUS      RESTARTS   AGE   JOB-COMPLETION-INDEX
+pod/processa-particoes-0-q2m7p   0/1     Completed   0          3s    0
+pod/processa-particoes-1-vj9rs   0/1     Completed   0          3s    1
+pod/processa-particoes-2-mfxvz   0/1     Completed   0          3s    2
+pod/processa-particoes-3-qp5t7   0/1     Completed   0          3s    3
+
+$ kubectl logs -l job-name=processa-particoes -n store-dev --prefix --tail=1
+# 2026-10-31 17:11:23 -03
+[pod/processa-particoes-0-q2m7p/worker] PARTICAO 0 processada por processa-particoes-0
+[pod/processa-particoes-1-vj9rs/worker] PARTICAO 1 processada por processa-particoes-1
+[pod/processa-particoes-2-mfxvz/worker] PARTICAO 2 processada por processa-particoes-2
+[pod/processa-particoes-3-qp5t7/worker] PARTICAO 3 processada por processa-particoes-3
+
+$ kubectl logs -l job-name=processa-particoes -n store-dev --tail=1 | awk '{print $2}' | sort -n | uniq
+# 2026-10-31 17:11:23 -03
+0
+1
+2
+3
+
+$ kubectl logs -l job-name=processa-particoes -n store-dev --tail=1 | awk '{print $2}' | sort -n | uniq -d | wc -l
+# 2026-10-31 17:11:23 -03
+       0
+

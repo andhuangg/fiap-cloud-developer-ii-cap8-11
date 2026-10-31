@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitor-sa
+  namespace: store-dev
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: leitura-store
+  namespace: store-dev
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "configmaps", "pods/log"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: monitor-sa-leitura-store
+  namespace: store-dev
+subjects:
+  - kind: ServiceAccount
+    name: monitor-sa
+    namespace: store-dev
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: leitura-store
+---
+# Pod que usa a ServiceAccount para chamar a API de dentro do cluster
+apiVersion: v1
+kind: Pod
+metadata:
+  name: monitor
+  namespace: store-dev
+spec:
+  serviceAccountName: monitor-sa
+  containers:
+    - name: c
+      image: curlimages/curl:8.11.1
+      command: ["sleep", "infinity"]

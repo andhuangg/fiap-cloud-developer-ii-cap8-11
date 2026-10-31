@@ -1,0 +1,331 @@
+$ tree k8s
+# 2026-10-31 17:48:39 -03
+k8s
+├── base
+│   ├── kustomization.yaml
+│   ├── store-api.yaml
+│   ├── store-front.yaml
+│   └── store-worker.yaml
+└── overlays
+    ├── dev
+    │   ├── kustomization.yaml
+    │   └── namespace.yaml
+    └── prod
+        ├── hpa.yaml
+        ├── kustomization.yaml
+        ├── limites.yaml
+        ├── namespace.yaml
+        ├── networkpolicy.yaml
+        ├── patch-prod-api.yaml
+        ├── patch-prod-front.yaml
+        ├── pdb.yaml
+        └── servicemonitor.yaml
+
+5 directories, 15 files
+
+$ make validate
+# 2026-10-31 17:48:39 -03
+kubectl apply -k k8s/overlays/dev --dry-run=server
+namespace/store-dev created (server dry run)
+Error from server (NotFound): error when creating "k8s/overlays/dev": namespaces "store-dev" not found
+Error from server (NotFound): error when creating "k8s/overlays/dev": namespaces "store-dev" not found
+Error from server (NotFound): error when creating "k8s/overlays/dev": namespaces "store-dev" not found
+Error from server (NotFound): error when creating "k8s/overlays/dev": namespaces "store-dev" not found
+Error from server (NotFound): error when creating "k8s/overlays/dev": namespaces "store-dev" not found
+Error from server (NotFound): error when creating "k8s/overlays/dev": namespaces "store-dev" not found
+Error from server (NotFound): error when creating "k8s/overlays/dev": namespaces "store-dev" not found
+Error from server (NotFound): error when creating "k8s/overlays/dev": namespaces "store-dev" not found
+Error from server (NotFound): error when creating "k8s/overlays/dev": namespaces "store-dev" not found
+make: *** [validate] Error 1
+
+$ make deploy-dev
+# 2026-10-31 17:48:40 -03
+kubectl apply -k k8s/overlays/dev
+namespace/store-dev created
+serviceaccount/store-api created
+serviceaccount/store-front created
+serviceaccount/store-worker created
+configmap/store-config-h588hdc8kc created
+service/store-api created
+service/store-front created
+deployment.apps/store-api created
+deployment.apps/store-front created
+deployment.apps/store-worker created
+kubectl -n store-dev rollout status deploy --timeout=180s
+Waiting for deployment "store-api" rollout to finish: 0 of 1 updated replicas are available...
+deployment "store-api" successfully rolled out
+deployment "store-front" successfully rolled out
+deployment "store-worker" successfully rolled out
+
+$ make deploy-prod
+# 2026-10-31 17:48:49 -03
+kubectl apply --server-side -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.80.1/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+customresourcedefinition.apiextensions.k8s.io/servicemonitors.monitoring.coreos.com serverside-applied
+kubectl apply -k k8s/overlays/prod
+namespace/store-prod created
+resourcequota/quota-store-prod created
+serviceaccount/store-api created
+serviceaccount/store-front created
+serviceaccount/store-worker created
+configmap/store-config-f247tk59d9 created
+service/store-api created
+service/store-front created
+limitrange/limites-padrao created
+deployment.apps/store-api created
+deployment.apps/store-front created
+deployment.apps/store-worker created
+poddisruptionbudget.policy/store-api created
+poddisruptionbudget.policy/store-front created
+horizontalpodautoscaler.autoscaling/store-api created
+servicemonitor.monitoring.coreos.com/store-api created
+networkpolicy.networking.k8s.io/allow-dns-egress created
+networkpolicy.networking.k8s.io/allow-ingress-to-front created
+networkpolicy.networking.k8s.io/allow-to-api created
+networkpolicy.networking.k8s.io/allow-worker-to-api created
+networkpolicy.networking.k8s.io/default-deny-all created
+kubectl -n store-prod rollout status deploy --timeout=300s
+Waiting for deployment "store-api" rollout to finish: 0 of 3 updated replicas are available...
+Waiting for deployment "store-api" rollout to finish: 1 of 3 updated replicas are available...
+Waiting for deployment "store-api" rollout to finish: 2 of 3 updated replicas are available...
+deployment "store-api" successfully rolled out
+deployment "store-front" successfully rolled out
+deployment "store-worker" successfully rolled out
+
+$ kubectl get all,pdb,hpa,netpol,quota,limitrange,servicemonitor -n store-dev
+# 2026-10-31 17:49:13 -03
+NAME                                READY   STATUS    RESTARTS   AGE
+pod/store-api-94b69495c-tx2tw       1/1     Running   0          32s
+pod/store-front-995fc9cbb-nlxl7     1/1     Running   0          32s
+pod/store-worker-79c95474d7-hkw4j   1/1     Running   0          32s
+
+NAME                  TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+service/store-api     ClusterIP   10.96.52.169   <none>        80/TCP    32s
+service/store-front   ClusterIP   10.96.86.60    <none>        80/TCP    32s
+
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/store-api      1/1     1            1           32s
+deployment.apps/store-front    1/1     1            1           32s
+deployment.apps/store-worker   1/1     1            1           32s
+
+NAME                                      DESIRED   CURRENT   READY   AGE
+replicaset.apps/store-api-94b69495c       1         1         1       32s
+replicaset.apps/store-front-995fc9cbb     1         1         1       32s
+replicaset.apps/store-worker-79c95474d7   1         1         1       32s
+
+$ kubectl get all,pdb,hpa,netpol,quota,limitrange,servicemonitor -n store-prod
+# 2026-10-31 17:49:13 -03
+NAME                               READY   STATUS    RESTARTS   AGE
+pod/store-api-cd495db7b-9clxt      1/1     Running   0          23s
+pod/store-api-cd495db7b-h2fhk      1/1     Running   0          23s
+pod/store-api-cd495db7b-vcnm7      1/1     Running   0          23s
+pod/store-front-857c67cd8c-9nqgk   1/1     Running   0          23s
+pod/store-front-857c67cd8c-c4hvz   1/1     Running   0          23s
+pod/store-front-857c67cd8c-h6pn4   1/1     Running   0          23s
+pod/store-worker-6b485c697-7dn6t   1/1     Running   0          23s
+pod/store-worker-6b485c697-gn8wm   1/1     Running   0          23s
+pod/store-worker-6b485c697-tb8mf   1/1     Running   0          23s
+
+NAME                  TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+service/store-api     ClusterIP   10.102.250.210   <none>        80/TCP    23s
+service/store-front   ClusterIP   10.98.217.230    <none>        80/TCP    23s
+
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/store-api      3/3     3            3           23s
+deployment.apps/store-front    3/3     3            3           23s
+deployment.apps/store-worker   3/3     3            3           23s
+
+NAME                                     DESIRED   CURRENT   READY   AGE
+replicaset.apps/store-api-cd495db7b      3         3         3       23s
+replicaset.apps/store-front-857c67cd8c   3         3         3       23s
+replicaset.apps/store-worker-6b485c697   3         3         3       23s
+
+NAME                                            REFERENCE              TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/store-api   Deployment/store-api   cpu: <unknown>/70%   3         10        3          23s
+
+NAME                                     MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/store-api     2               N/A               1                     23s
+poddisruptionbudget.policy/store-front   2               N/A               1                     23s
+
+NAME                                                     POD-SELECTOR       AGE
+networkpolicy.networking.k8s.io/allow-dns-egress         <none>             21s
+networkpolicy.networking.k8s.io/allow-ingress-to-front   app=store-front    21s
+networkpolicy.networking.k8s.io/allow-to-api             app=store-api      21s
+networkpolicy.networking.k8s.io/allow-worker-to-api      app=store-worker   21s
+networkpolicy.networking.k8s.io/default-deny-all         <none>             21s
+
+NAME                             REQUEST                                                                                                     LIMIT                       AGE
+resourcequota/quota-store-prod   persistentvolumeclaims: 0/5, pods: 9/30, requests.cpu: 480m/2, requests.memory: 624Mi/2Gi, services: 2/10   limits.memory: 1248Mi/4Gi   23s
+
+NAME                        CREATED AT
+limitrange/limites-padrao   2026-10-31T20:48:50Z
+
+NAME                                             AGE
+servicemonitor.monitoring.coreos.com/store-api   21s
+
+$ kubectl get deploy -n store-dev -o wide
+# 2026-10-31 17:49:13 -03
+NAME           READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS     IMAGES                                    SELECTOR
+store-api      1/1     1            1           32s   store-api      store-api:1.2                             app=store-api
+store-front    1/1     1            1           32s   store-front    nginxinc/nginx-unprivileged:1.27-alpine   app=store-front
+store-worker   1/1     1            1           32s   store-worker   busybox:1.36                              app=store-worker
+
+$ kubectl get deploy -n store-prod -o wide
+# 2026-10-31 17:49:13 -03
+NAME           READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS     IMAGES                                    SELECTOR
+store-api      3/3     3            3           23s   store-api      store-api:1.1                             app=store-api
+store-front    3/3     3            3           23s   store-front    nginxinc/nginx-unprivileged:1.27-alpine   app=store-front
+store-worker   3/3     3            3           23s   store-worker   busybox:1.36                              app=store-worker
+
+$ kubectl get ns store-dev store-prod --show-labels
+# 2026-10-31 17:49:13 -03
+NAME         STATUS   AGE   LABELS
+store-dev    Active   32s   ambiente=dev,kubernetes.io/metadata.name=store-dev,pod-security.kubernetes.io/enforce-version=v1.33,pod-security.kubernetes.io/enforce=baseline,pod-security.kubernetes.io/warn-version=v1.33,pod-security.kubernetes.io/warn=restricted
+store-prod   Active   23s   ambiente=prod,kubernetes.io/metadata.name=store-prod,pod-security.kubernetes.io/audit-version=v1.33,pod-security.kubernetes.io/audit=restricted,pod-security.kubernetes.io/enforce-version=v1.33,pod-security.kubernetes.io/enforce=restricted,pod-security.kubernetes.io/warn-version=v1.33,pod-security.kubernetes.io/warn=restricted
+
+$ kubectl exec -n store-dev deploy/store-worker -- printenv APP_ENV; kubectl exec -n store-prod deploy/store-worker -- printenv APP_ENV
+# 2026-10-31 17:49:13 -03
+dev
+prod
+
+$ kubectl run psa-teste --image=busybox:1.36 -n store-prod --restart=Never -- sleep 5
+# 2026-10-31 17:49:14 -03
+Error from server (Forbidden): pods "psa-teste" is forbidden: violates PodSecurity "restricted:v1.33": allowPrivilegeEscalation != false (container "psa-teste" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "psa-teste" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "psa-teste" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "psa-teste" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+
+$ kubectl get events -n store-prod --field-selector reason=FailedCreate | head
+# 2026-10-31 17:49:14 -03
+No resources found in store-prod namespace.
+
+$ kubectl describe quota quota-store-prod -n store-prod
+# 2026-10-31 17:49:14 -03
+Name:                   quota-store-prod
+Namespace:              store-prod
+Resource                Used    Hard
+--------                ----    ----
+limits.memory           1248Mi  4Gi
+persistentvolumeclaims  0       5
+pods                    9       30
+requests.cpu            480m    2
+requests.memory         624Mi   2Gi
+services                2       10
+
+$ make validate 2>&1 | tail -8
+# 2026-10-31 17:49:24 -03
+poddisruptionbudget.policy/store-front configured (server dry run)
+horizontalpodautoscaler.autoscaling/store-api unchanged (server dry run)
+servicemonitor.monitoring.coreos.com/store-api unchanged (server dry run)
+networkpolicy.networking.k8s.io/allow-dns-egress unchanged (server dry run)
+networkpolicy.networking.k8s.io/allow-ingress-to-front unchanged (server dry run)
+networkpolicy.networking.k8s.io/allow-to-api unchanged (server dry run)
+networkpolicy.networking.k8s.io/allow-worker-to-api unchanged (server dry run)
+networkpolicy.networking.k8s.io/default-deny-all unchanged (server dry run)
+
+$ make diff; echo exit=$?
+# 2026-10-31 17:49:26 -03
+kubectl diff -k k8s/overlays/dev
+kubectl diff -k k8s/overlays/prod
+exit=0
+
+$ kubectl get hpa -n store-prod
+# 2026-10-31 17:50:01 -03
+NAME        REFERENCE              TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+store-api   Deployment/store-api   cpu: <unknown>/70%   3         10        3          72s
+
+$ make scan 2>&1 | grep -E '^==|debian|alpine|Total|exit' ; echo exit=${PIPESTATUS[0]}
+# 2026-10-31 17:50:18 -03
+== busybox:1.36
+== nginxinc/nginx-unprivileged:1.27-alpine
+│ nginxinc/nginx-unprivileged:1.27-alpine (alpine 3.21.3) │ alpine │        3        │
+nginxinc/nginx-unprivileged:1.27-alpine (alpine 3.21.3)
+=======================================================
+Total: 3 (CRITICAL: 3)
+exit=
+
+$ kubectl get hpa -n store-prod
+# 2026-10-31 17:50:23 -03
+NAME        REFERENCE              TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+store-api   Deployment/store-api   cpu: <unknown>/70%   3         10        3          93s
+
+### nginx 1.27-alpine barrada pela porta de qualidade (3 CRITICAL corrigiveis); trocada por 1.30-alpine-slim
+$ make scan 2>&1 | grep -E '^==|Total|Error|make:'; echo fim
+# 2026-10-31 17:52:18 -03
+== busybox:1.36
+== nginxinc/nginx-unprivileged:1.30-alpine-slim
+== store-api:1.1
+== store-api:1.2
+fim
+
+$ make deploy-dev 2>&1 | tail -3 && make deploy-prod 2>&1 | tail -3
+# 2026-10-31 17:52:22 -03
+Waiting for deployment "store-front" rollout to finish: 1 old replicas are pending termination...
+deployment "store-front" successfully rolled out
+deployment "store-worker" successfully rolled out
+Waiting for deployment "store-front" rollout to finish: 1 old replicas are pending termination...
+deployment "store-front" successfully rolled out
+deployment "store-worker" successfully rolled out
+
+$ kubectl get deploy -n store-dev -o wide; kubectl get deploy -n store-prod -o wide
+# 2026-10-31 17:52:34 -03
+NAME           READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS     IMAGES                                         SELECTOR
+store-api      1/1     1            1           3m53s   store-api      store-api:1.2                                  app=store-api
+store-front    1/1     1            1           3m53s   store-front    nginxinc/nginx-unprivileged:1.30-alpine-slim   app=store-front
+store-worker   1/1     1            1           3m53s   store-worker   busybox:1.36                                   app=store-worker
+NAME           READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS     IMAGES                                         SELECTOR
+store-api      3/3     3            3           3m44s   store-api      store-api:1.1                                  app=store-api
+store-front    3/3     3            3           3m44s   store-front    nginxinc/nginx-unprivileged:1.30-alpine-slim   app=store-front
+store-worker   3/3     3            3           3m44s   store-worker   busybox:1.36                                   app=store-worker
+
+$ kubectl get hpa -n store-prod
+# 2026-10-31 17:52:34 -03
+NAME        REFERENCE              TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+store-api   Deployment/store-api   cpu: 8%/70%   3         10        3          3m44s
+
+$ make deploy-prod 2>&1 | grep -E 'priorityclass|deployment.apps/store-api|successfully' 
+# 2026-10-31 17:53:11 -03
+priorityclass.scheduling.k8s.io/fiap-store-critico created
+deployment.apps/store-api configured
+deployment "store-api" successfully rolled out
+deployment "store-front" successfully rolled out
+deployment "store-worker" successfully rolled out
+
+$ kubectl top pods -n store-prod
+# 2026-10-31 17:53:24 -03
+NAME                           CPU(cores)   MEMORY(bytes)   
+store-api-656f476dfd-bs7gx     80m          34Mi            
+store-api-cd495db7b-9clxt      5m           34Mi            
+store-api-cd495db7b-h2fhk      6m           34Mi            
+store-api-cd495db7b-vcnm7      6m           34Mi            
+store-front-5f96f777d7-bkb78   3m           7Mi             
+store-front-5f96f777d7-ptmqd   2m           7Mi             
+store-front-5f96f777d7-vb7p4   3m           7Mi             
+store-worker-6b485c697-7dn6t   1m           0Mi             
+store-worker-6b485c697-gn8wm   2m           0Mi             
+store-worker-6b485c697-tb8mf   1m           0Mi             
+
+$ kubectl get pods -n store-prod -l app=store-api -o 'custom-columns=NAME:.metadata.name,PRIORITY:.spec.priorityClassName,QOS:.status.qosClass,MEM_REQ:.spec.containers[0].resources.requests.memory,MEM_LIM:.spec.containers[0].resources.limits.memory'
+# 2026-10-31 17:53:29 -03
+NAME                         PRIORITY             QOS         MEM_REQ   MEM_LIM
+store-api-656f476dfd-8dvrq   fiap-store-critico   Burstable   192Mi     192Mi
+store-api-656f476dfd-bs7gx   fiap-store-critico   Burstable   192Mi     192Mi
+store-api-656f476dfd-qbncn   fiap-store-critico   Burstable   192Mi     192Mi
+store-api-cd495db7b-h2fhk    <none>               Burstable   128Mi     256Mi
+store-api-cd495db7b-vcnm7    <none>               Burstable   128Mi     256Mi
+
+$ kubectl get pods -n store-prod; kubectl get pods -n store-dev
+# 2026-10-31 17:53:29 -03
+NAME                           READY   STATUS        RESTARTS   AGE
+store-api-656f476dfd-8dvrq     1/1     Running       0          8s
+store-api-656f476dfd-bs7gx     1/1     Running       0          17s
+store-api-656f476dfd-qbncn     1/1     Running       0          15s
+store-api-cd495db7b-h2fhk      1/1     Terminating   0          4m39s
+store-api-cd495db7b-vcnm7      1/1     Terminating   0          4m39s
+store-front-5f96f777d7-bkb78   1/1     Running       0          58s
+store-front-5f96f777d7-ptmqd   1/1     Running       0          63s
+store-front-5f96f777d7-vb7p4   1/1     Running       0          61s
+store-worker-6b485c697-7dn6t   1/1     Running       0          4m39s
+store-worker-6b485c697-gn8wm   1/1     Running       0          4m39s
+store-worker-6b485c697-tb8mf   1/1     Running       0          4m39s
+NAME                            READY   STATUS    RESTARTS   AGE
+store-api-94b69495c-tx2tw       1/1     Running   0          4m48s
+store-front-657b86bf94-qfvtb    1/1     Running   0          66s
+store-worker-79c95474d7-hkw4j   1/1     Running   0          4m48s
+
